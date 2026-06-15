@@ -1,9 +1,9 @@
-/** 复训星球 v16-E8 版本信息（父母工作台减法重构） */
-export const APP_VERSION = "v16-E8";
+/** 复训星球 v16-E9 版本信息（优培栏目成长大盘 K 线恢复） */
+export const APP_VERSION = "v16-E9";
 export const APP_NAME = "复训星球";
 export const APP_TAGLINE = "错题复训清零，家庭陪伴成长。";
-export const SW_CACHE_ID = "fuxun-planet-v16e8";
-export const DEMO_CACHE_BUST = "16e8";
+export const SW_CACHE_ID = "fuxun-planet-v16e9";
+export const DEMO_CACHE_BUST = "16e9";
 
 export const MODULE_SLOGANS = {
   home: APP_TAGLINE,

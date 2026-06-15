@@ -39,6 +39,7 @@ import { buildParentSummary, trainingSummaryText } from "./parentSummary.js";
 import { drawBarChart, drawRing, drawGrowthKline, drawInvestmentKline, mountGrowthKlineChart } from "./charts.js";
 import {
   getGrowthMarket, ensureGrowthMarketData, getGrowthCandles, hasGrowthMarketData,
+  seedDemoGrowthMarket, isDemoGrowthFamily,
   formatChange, formatChangeParts, GROWTH_DISCLAIMER, getLevelName,
 } from "./growthMarket.js";
 import {
@@ -1793,6 +1794,28 @@ function renderGrowthFactors(gm) {
     ${reasonLine ? `<p class="hint growth-factors__line">${reasonLine}</p>` : ""}</div>`;
 }
 
+function loadCoachGrowthMarket(user, student) {
+  const familyId = user?.familyId;
+  const studentId = student?.memberId;
+  if (!familyId || !studentId) return null;
+  ensureGrowthMarketData(familyId, studentId);
+  let gm = getGrowthMarket(familyId, studentId);
+  if (getGrowthCandles(gm).length === 0 && (isDemoFamily(familyId) || isDemoGrowthFamily(familyId))) {
+    seedDemoGrowthMarket(familyId, studentId);
+    gm = getGrowthMarket(familyId, studentId);
+  }
+  return gm;
+}
+
+function shouldShowGrowthEmpty(gm, familyId, opts = {}) {
+  const candles = getGrowthCandles(gm);
+  if (opts.forCoach) {
+    if (familyId && (isDemoFamily(familyId) || isDemoGrowthFamily(familyId))) return false;
+    return candles.length === 0;
+  }
+  return !hasGrowthMarketData(gm, familyId, opts.studentId);
+}
+
 function renderGrowthDashboard(student, gm, opts = {}) {
   const name = student?.name || "Daniel";
   const familyId = opts.familyId;
@@ -1800,7 +1823,7 @@ function renderGrowthDashboard(student, gm, opts = {}) {
   const canvasId = opts.canvasId || "growth-kline";
   const candles = getGrowthCandles(gm);
 
-  if (!hasGrowthMarketData(gm, familyId)) {
+  if (shouldShowGrowthEmpty(gm, familyId, opts)) {
     return `<section class="growth-board growth-board--empty card-block">
       <div class="growth-board__head">${renderAvatar(student, "growth-board__avatar")}
         <div><h2 class="growth-board__title">${name} 的成长大盘</h2>
@@ -2122,13 +2145,17 @@ function renderCoach(root) {
   const student = getStudentMember();
   const father = getMembers().find((m) => m.role === "father");
   const mother = getMembers().find((m) => m.role === "mother");
-  const gm = ensureGrowthMarketData(user?.familyId, student?.memberId);
+  const gm = loadCoachGrowthMarket(user, student);
 
   let tail = "";
   if (role === "student" && !st.hasEncouragement) tail += EmptyCard(EMPTY_HINTS.hearts, "💛");
   tail += `<div class="coach-entry-list">${renderParentEntryCard(father, "father", role === "student")}${renderParentEntryCard(mother, "mother", role === "student")}</div>`;
 
-  const body = `${renderGrowthDashboard(student, gm, { familyId: user?.familyId })}
+  const body = `${renderGrowthDashboard(student, gm, {
+    familyId: user?.familyId,
+    studentId: student?.memberId,
+    forCoach: true,
+  })}
     <div class="quick-actions quick-actions--coach">
       <button type="button" class="quick-action-btn btn btn--sun" data-go="/coach-honor">🏆 进入荣誉室</button>
     </div>
@@ -2144,7 +2171,10 @@ function renderCoach(root) {
   }));
   root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
   $("[data-invite-coach]", root)?.addEventListener("click", () => showToast("请邀请爸爸妈妈进入优培栏目发送鼓励", "info"));
-  setTimeout(() => bindGrowthKlineCharts(root, getGrowthCandles(gm), "growth-kline"), 50);
+  const coachCandles = getGrowthCandles(gm);
+  if (coachCandles.length) {
+    setTimeout(() => bindGrowthKlineCharts(root, coachCandles, "growth-kline"), 50);
+  }
 }
 
 function renderHonorSection(title, items, emptyMsg, icon = "🏆") {
