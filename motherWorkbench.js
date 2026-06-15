@@ -9,6 +9,23 @@ import { formatSpecialPerformanceSummary } from "./specialPerformance.js";
 import { rewardStudentWithHonor, getParentWalletForViewer } from "./pointLedger.js";
 import { getHonorItems, addHonorItem } from "./honorItems.js";
 import { calcCheckinStreak } from "./fatherWorkbench.js";
+import {
+  MOTHER_COMPANION_SCENARIOS,
+  MOTHER_TOOL_LABELS,
+  MOTHER_SUBMIT_LABELS,
+  findScenarioCategoryByLabel,
+  buildCompanionRewardDraft,
+  buildCompanionFromSpecialPerformance,
+} from "./motherCompanionScenarios.js";
+
+export {
+  MOTHER_COMPANION_SCENARIOS,
+  MOTHER_TOOL_LABELS,
+  MOTHER_SUBMIT_LABELS,
+  buildCompanionRewardDraft,
+  buildCompanionFromSpecialPerformance,
+  findScenarioCategoryByLabel,
+} from "./motherCompanionScenarios.js";
 
 export const MOTHER_REWARD_POINTS = {
   card: 500,
@@ -36,42 +53,6 @@ export const FAMILY_REWARD_TYPES = [
   "周末亲子活动",
   "妈妈陪你复盘一次",
 ];
-
-export const MOTHER_COMPANION_SCENARIOS = {
-  emotion: {
-    label: "情绪支持场景",
-    items: [
-      "压力大但坚持完成",
-      "遇到挫折没有放弃",
-      "主动表达感受",
-      "情绪稳定了一次",
-      "今天愿意沟通",
-      "今天没有把压力带给家人",
-    ],
-  },
-  plan: {
-    label: "计划陪伴场景",
-    items: [
-      "明天计划清晰",
-      "主动安排学习顺序",
-      "提前准备资料",
-      "主动复盘今天的问题",
-      "知道下一步怎么做",
-    ],
-  },
-  warm: {
-    label: "温暖成长场景",
-    items: [
-      "主动感谢家人",
-      "主动帮家里做事",
-      "主动整理房间",
-      "主动早睡早起",
-      "主动运动",
-      "今天对自己更有耐心",
-      "有一个值得被抱抱的小进步",
-    ],
-  },
-};
 
 const HONOR_TYPE_MAP = {
   card: "妈妈鼓励卡",
@@ -169,7 +150,7 @@ export function buildMotherAiSuggestion(snapshot) {
   } else if (!trainingDone && lowStress) {
     rewardMethod = "鼓励卡";
     suggestedPoints = MOTHER_REWARD_POINTS.card;
-    scenario = "压力大但坚持完成";
+    scenario = "愿意接受提醒";
     motherMessage = "Daniel 今天虽然还没完全清零错题，但压力不高，也愿意继续复训。建议发一张鼓励卡，奖励 500 分，并给一个明天的小目标。";
     childMessage = "还没清零也没关系，妈妈陪你一步一步来。";
     tomorrowGoal = tomorrowPlan !== "—" ? tomorrowPlan : "明天先完成 1 道错题复训";
@@ -248,6 +229,7 @@ export function submitMotherReward({
   motherHelp,
   tomorrowReminder,
   relatedRecordId,
+  addToHonor = true,
   member,
   student,
   familyId,
@@ -273,19 +255,21 @@ export function submitMotherReward({
       payload: { tool, scenario, scenarioCategory, title: displayTitle, content: body, points: 0 },
     });
 
-    addHonorItem({
-      familyId,
-      studentId: student?.memberId,
-      fromRole: "mother",
-      fromName: member?.name || "妈妈",
-      itemType: "tomorrow-goal",
-      title: displayTitle,
-      content: body,
-      scenario,
-      scenarioCategory,
-      points: 0,
-      relatedRecordId,
-    });
+    if (addToHonor !== false) {
+      addHonorItem({
+        familyId,
+        studentId: student?.memberId,
+        fromRole: "mother",
+        fromName: member?.name || "妈妈",
+        itemType: "tomorrow-goal",
+        title: displayTitle,
+        content: body,
+        scenario,
+        scenarioCategory,
+        points: 0,
+        relatedRecordId,
+      });
+    }
 
     return { ok: true, message: "明日小目标已记录", displayTitle, points: 0 };
   }
@@ -314,22 +298,24 @@ export function submitMotherReward({
   });
   if (!result.ok) return result;
 
-  addHonorItem({
-    familyId,
-    studentId: student?.memberId,
-    fromRole: "mother",
-    fromName: member?.name || "妈妈",
-    itemType: tool,
-    title: displayTitle,
-    content: content || reason,
-    scenario,
-    scenarioCategory,
-    medalType: tool === "badge" ? badgeType : "",
-    familyRewardType: familyRewardType || "",
-    points: pts,
-    transactionId: result.transaction?.transactionId,
-    relatedRecordId,
-  });
+  if (addToHonor !== false) {
+    addHonorItem({
+      familyId,
+      studentId: student?.memberId,
+      fromRole: "mother",
+      fromName: member?.name || "妈妈",
+      itemType: tool,
+      title: displayTitle,
+      content: content || reason,
+      scenario,
+      scenarioCategory,
+      medalType: tool === "badge" ? badgeType : "",
+      familyRewardType: familyRewardType || "",
+      points: pts,
+      transactionId: result.transaction?.transactionId,
+      relatedRecordId,
+    });
+  }
 
   addCoachingAction({
     familyId,
