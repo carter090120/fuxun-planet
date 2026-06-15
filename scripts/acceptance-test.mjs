@@ -100,7 +100,8 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
   && demoRec.specialPerformance.suggestedPoints === 200);
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
-ok("v15. SW含memberRoles与v16c", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16c"));
+const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
+ok("v15. SW含memberRoles与v16d", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16d"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -115,6 +116,10 @@ ok("v16c. 三类陪伴场景", Object.keys(motherWorkbench.MOTHER_COMPANION_SCEN
 ok("v16c. app含renderMotherWorkbench", appText.includes("renderMotherWorkbench") && appText.includes("妈妈陪伴工具箱"));
 ok("v16c. 优培总览无钱包hint", !appText.includes("${renderCoachWalletHint()}"));
 ok("v16c. 荣誉室分栏", appText.includes("我的贺卡") && appText.includes("妈妈鼓励记录"));
+ok("v16d. 首屏压缩函数", appText.includes("renderFatherFirstScreen") && appText.includes("renderMotherFirstScreen") && appText.includes("renderHonorHero"));
+ok("v16d. planet-card样式", cssText.includes(".planet-card") && cssText.includes(".quick-action-btn"));
+ok("v16d. Ryan首屏快捷按钮", appText.includes('data-father-tool="card"') && appText.includes("发贺卡"));
+ok("v16d. Sara首屏快捷按钮", appText.includes('data-mother-tool="card"') && appText.includes("发鼓励卡"));
 ok("v15. app含rewardStudent", appText.includes("rewardStudent"));
 
 storage.saveState(st);
