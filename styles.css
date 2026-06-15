@@ -144,6 +144,7 @@ body.has-nav { padding-bottom: calc(var(--nav-h) + 48px + var(--safe-b)); }
   font-size: 0.72rem; font-weight: 700;
 }
 .tag--muted { background: #f1f5f9; color: var(--soft); }
+.tag-row--muted .tag { background: #f8fafc; color: var(--soft); font-size: 0.68rem; }
 
 /* Cards & forms */
 .card-block, .form-block, .report-box, .coach-summary, .coach-card {

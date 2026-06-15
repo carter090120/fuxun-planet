@@ -26,6 +26,8 @@ export const AVATAR_PRESETS = {
   default: ["👤", "😊", "🌟", "🦸", "🎓"],
 };
 
+export { SYSTEM_ROLE_OPTIONS } from "./memberRoles.js";
+
 export const REG_PRESETS = {
   dadHobbies: ["运动", "阅读", "跑步", "旅行", "音乐", "科技", "电影", "做饭", "篮球", "商业", "其他"],
   dadTags: ["理性分析型", "结果导向型", "鼓励陪伴型", "目标管理型", "幽默陪伴型", "行动派", "安静支持型"],

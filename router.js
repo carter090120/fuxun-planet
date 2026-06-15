@@ -36,11 +36,18 @@ export function guardRoute(path) {
   return true;
 }
 
+export function isCoachWorkbenchRoute(route) {
+  return route.path === "coach" && (route.id === "father" || route.id === "mother");
+}
+
 export function updateBottomNav(route, root, onNav, unreadCount = 0) {
   const nav = document.getElementById("bottom-nav");
   if (!nav) return;
   const hideNav = ["train-play", "train-complete", "poster", "hearts", "coach-parent", "coach-honor"];
-  const show = isLoggedIn() && !PUBLIC.has(route.path) && !hideNav.includes(route.path);
+  const show = isLoggedIn()
+    && !PUBLIC.has(route.path)
+    && !hideNav.includes(route.path)
+    && !isCoachWorkbenchRoute(route);
   nav.classList.toggle("hidden", !show);
   document.body.classList.toggle("has-nav", show);
   if (!show) return;

@@ -9,7 +9,7 @@ const APP_ASSETS = [
   "./styles.css", "./app.js", "./components.js", "./version.js", "./demoData.js",
   "./storage.js", "./auth.js", "./router.js", "./parentSummary.js",
   "./questionParser.js", "./ocrService.js", "./trainingCoach.js", "./notifications.js",
-  "./charts.js", "./poster.js", "./growthMarket.js", "./growthAssets.js", "./pointLedger.js", "./marketKline.js", "./trainingFocus.js",
+  "./charts.js", "./poster.js", "./growthMarket.js", "./growthAssets.js", "./pointLedger.js", "./marketKline.js", "./trainingFocus.js", "./memberRoles.js",
 ];
 
 const NETWORK_FIRST_PATTERNS = [

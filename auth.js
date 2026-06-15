@@ -3,6 +3,7 @@ import {
   getFamily, getMembers, getUser, getStudentMember,
 } from "./storage.js";
 import { ensureGrowthAssets } from "./growthAssets.js";
+import { DEFAULT_PARENT_SYSTEM_ROLES } from "./memberRoles.js";
 
 export { getFamily, getMembers, getStudentMember };
 
@@ -108,6 +109,9 @@ export function registerFamily(data) {
     hobbies: tagList(data.dadHobbies),
     personalityTags: tagList(data.dadTags),
     coachingStyle: tagList(data.dadCompanion),
+    systemRoles: tagList(data.dadSystemRoles).length
+      ? tagList(data.dadSystemRoles)
+      : [...DEFAULT_PARENT_SYSTEM_ROLES.father],
   });
   const mother = mkMember("mother", {
     name: data.momName || "妈妈",
@@ -115,6 +119,9 @@ export function registerFamily(data) {
     hobbies: tagList(data.momHobbies),
     personalityTags: tagList(data.momTags),
     coachingStyle: tagList(data.momCompanion),
+    systemRoles: tagList(data.momSystemRoles).length
+      ? tagList(data.momSystemRoles)
+      : [...DEFAULT_PARENT_SYSTEM_ROLES.mother],
   });
   const student = mkMember("student", {
     name: data.childName || "同学",
@@ -128,6 +135,7 @@ export function registerFamily(data) {
     personalityTags: tagList(data.childTags),
     parentResponsePref: data.parentResponsePref || "只鼓励我",
     parentResponsePreference: data.parentResponsePref || "只鼓励我",
+    systemRoles: ["成长星球"],
   });
 
   const pw = hashPassword(data.password);

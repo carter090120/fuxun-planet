@@ -9,7 +9,7 @@ import {
   addMaterialImages, updateMaterialImage, getMaterialImages, upsertPhotoMistakes, getPhotoMistakes,
   getTrainingSessions, getTodayRecord, upsertDailyRecord, getRecord,
   addCoachingAction, getCoachingActions, todayStatus, getPrivacy, savePrivacy,
-  exportJson, importJson, exportCsv, clearAllData, migrateLegacyStorage, genCode, getStudentMember, updateMember, updateFamily,
+  exportJson, importJson, exportCsv, clearAllData, migrateLegacyStorage, genCode, getStudentMember, getMember, updateMember, updateFamily,
   hasParentSentToday,
 } from "./storage.js";
 import {
@@ -40,6 +40,10 @@ import {
   beginTrainingFromUserGesture, getInstallGuideHTML, detectTrainingEnvironment,
 } from "./trainingFocus.js";
 import { navigate, parseRoute, guardRoute, updateBottomNav } from "./router.js";
+import {
+  SYSTEM_ROLE_OPTIONS, DEFAULT_PARENT_SYSTEM_ROLES, formatMemberRoleLine, getMemberEntryPath, getMemberEntryLabel,
+  getParentWorkbenchMeta, getMemberSystemRoles,
+} from "./memberRoles.js";
 import { generatePoster, sharePoster, downloadPoster } from "./poster.js";
 import { APP_VERSION, APP_TAGLINE, MODULE_SLOGANS, SW_CACHE_ID, EMPTY_HINTS } from "./version.js";
 import {
@@ -208,6 +212,7 @@ function renderRegister(root) {
           <label class="field"><span>姓名</span><input name="dadName" placeholder="爸爸" value="${d.dadName || ""}" /></label>
           ${AvatarPickerHTML({ name: "dadAvatar", value: d.dadAvatar || "👨", imageValue: d.dadAvatarImage || "", label: "头像", presets: AVATAR_PRESETS.father, avatarType: d.dadAvatarType, avatarValue: d.dadAvatarValue })}
           ${TagSelectHTML({ name: "dadHobbies", label: "爱好", presets: REG_PRESETS.dadHobbies, selected: d.dadHobbies })}
+          ${TagSelectHTML({ name: "dadSystemRoles", label: "系统角色（可选，可多选）", presets: SYSTEM_ROLE_OPTIONS, selected: d.dadSystemRoles || DEFAULT_PARENT_SYSTEM_ROLES.father })}
           ${TagSelectHTML({ name: "dadTags", label: "性格标签", presets: REG_PRESETS.dadTags, selected: d.dadTags })}
           ${TagSelectHTML({ name: "dadCompanion", label: "陪伴方式", presets: REG_PRESETS.dadCompanion, selected: d.dadCompanion })}
         `)}
@@ -215,6 +220,7 @@ function renderRegister(root) {
           <label class="field"><span>姓名</span><input name="momName" placeholder="妈妈" value="${d.momName || ""}" /></label>
           ${AvatarPickerHTML({ name: "momAvatar", value: d.momAvatar || "👩", imageValue: d.momAvatarImage || "", label: "头像", presets: AVATAR_PRESETS.mother, avatarType: d.momAvatarType, avatarValue: d.momAvatarValue })}
           ${TagSelectHTML({ name: "momHobbies", label: "爱好", presets: REG_PRESETS.momHobbies, selected: d.momHobbies })}
+          ${TagSelectHTML({ name: "momSystemRoles", label: "系统角色（可选，可多选）", presets: SYSTEM_ROLE_OPTIONS, selected: d.momSystemRoles || DEFAULT_PARENT_SYSTEM_ROLES.mother })}
           ${TagSelectHTML({ name: "momTags", label: "性格标签", presets: REG_PRESETS.momTags, selected: d.momTags })}
           ${TagSelectHTML({ name: "momCompanion", label: "陪伴方式", presets: REG_PRESETS.momCompanion, selected: d.momCompanion })}
         `)}
@@ -281,8 +287,6 @@ function renderHome(root) {
   });
   const st = todayStatus();
   const unread = getUnreadCount();
-  const roleLabels = { father: "爸爸", mother: "妈妈", student: "孩子" };
-
   root.innerHTML = `<div class="page">
     <header class="home-top"><div class="home-top__brand">${renderFamilyBadge(fam, "home-badge")}</div><div>
       <p class="home-brand">复训星球</p>
@@ -297,16 +301,19 @@ function renderHome(root) {
       const status = m.role === "student"
         ? (st.checkedIn ? `已打卡 ${formatScore(st.totalScore)}分` : "待打卡")
         : "陪伴中";
+      const hobbyLine = m.role === "student"
+        ? (m.subjectFocus?.length ? m.subjectFocus : m.hobbies)
+        : m.hobbies;
       return `<article class="member-card member-card--${m.role}">
         <div class="member-card__avatar">${renderAvatar(m, "member-card__avatar")}</div>
         <div class="member-card__body">
           <strong>${m.name}${m.nickname ? ` · ${m.nickname}` : ""}</strong>
-          <span class="member-role">${roleLabels[m.role]}</span>
-          <div class="tag-row">${tagsHTML(m.hobbies)}</div>
-          <div class="tag-row">${tagsHTML(m.personalityTags?.length ? m.personalityTags : (m.coachingStyle || []))}</div>
+          <span class="member-role">${formatMemberRoleLine(m)}</span>
+          <div class="tag-row">${tagsHTML(hobbyLine)}</div>
+          ${m.role === "student" ? "" : `<div class="tag-row tag-row--muted">${tagsHTML(m.personalityTags)}</div>`}
           <p class="member-status">今日：${status}</p>
         </div>
-        <button class="btn btn--primary btn--sm" data-enter="${m.memberId}">进入</button>
+        <button class="btn btn--primary btn--sm" data-enter="${m.memberId}" data-role="${m.role}">${getMemberEntryLabel(m)}</button>
       </article>`;
     }).join("")}</div></div>`;
 
@@ -316,11 +323,9 @@ function renderHome(root) {
     }
   });
   root.querySelectorAll("[data-enter]").forEach((b) => b.addEventListener("click", () => {
-    enterAsMember(b.dataset.enter);
-    const role = getCurrentRole();
-    if (role === "student") navigate("/checkin");
-    else if (role === "father" || role === "mother") navigate("/coach");
-    else navigate("/home");
+    const member = getMember(b.dataset.enter);
+    if (!member || !enterAsMember(b.dataset.enter)) return;
+    navigate(getMemberEntryPath(member));
   }));
   root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
   if (unread && getCurrentRole() === "student") {
@@ -1485,18 +1490,17 @@ function renderCoachSummary(student, st) {
 
 function renderParentEntryCard(member, role, readonly = false) {
   if (!member) return "";
-  const label = role === "father" ? "爸爸优培卡" : "妈妈优培卡";
+  const wb = getParentWorkbenchMeta(role, member);
   const sent = hasParentSentToday(role);
-  const tip = role === "mother"
-    ? "今天可以先看孩子的计划和心情，再帮他整理一个明天的小目标。"
-    : "今天可以先认可孩子的努力，再指出一个关键方法，不要一次说太多。";
+  const tip = wb?.tagline || "";
   return `<article class="coach-card coach-card--${role}">
     <div class="coach-card__head">${renderAvatar(member, "coach-card__avatar")}
-      <div><h3>${label}</h3><strong>${member.name}</strong>
+      <div><h3>${wb?.title || member.name}</h3>
+      <span class="member-role">${formatMemberRoleLine(member)}</span>
       <div class="tag-row">${tagsHTML(member.personalityTags)}</div></div>
     </div>
     ${readonly ? `<p class="hint">今日是否已发送鼓励：${sent ? "是" : "否"}</p>` : `<p class="hint">${tip}</p><p class="hint">今日鼓励：${sent ? "已发送 ✓" : "尚未发送"}</p>
-    <button class="btn btn--primary btn--block" data-enter-coach="${role}">进入${role === "father" ? "爸爸" : "妈妈"}优培</button>`}
+    <button class="btn btn--primary btn--block" data-enter-coach="${role}">进入工作台</button>`}
   </article>`;
 }
 
@@ -1549,7 +1553,7 @@ function renderCoach(root) {
     ${tail}`;
 
   root.innerHTML = shell("优培", "Growth Coaching", "", body, MODULE_SLOGANS.coach);
-  root.querySelectorAll("[data-enter-coach]").forEach((b) => b.addEventListener("click", () => navigate(`/coach-parent/${b.dataset.enterCoach}`)));
+  root.querySelectorAll("[data-enter-coach]").forEach((b) => b.addEventListener("click", () => navigate(`/coach/${b.dataset.enterCoach}`)));
   root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
   $("[data-invite-coach]", root)?.addEventListener("click", () => showToast("请邀请爸爸妈妈进入优培栏目发送鼓励", "info"));
   if (gm?.history?.length) {
@@ -1592,16 +1596,14 @@ function renderCoachParent(root, parentRole) {
   const role = parentRole || getCurrentRole();
   if (role !== "father" && role !== "mother") { navigate("/coach"); return; }
   const member = getMembers().find((m) => m.role === role);
-  const student = getStudentMember();
-  const label = role === "father" ? "爸爸" : "妈妈";
-  const tip = role === "mother"
-    ? RemindCard("今天可以先看孩子的计划和心情，再帮他整理一个明天的小目标。")
-    : RemindCard("今天可以先认可孩子的努力，再指出一个关键方法，不要一次说太多。");
+  const wb = getParentWorkbenchMeta(role, member);
+  const tip = RemindCard(wb?.tagline || "今天可以先看看孩子的状态，再给出合适的陪伴。");
 
-  root.innerHTML = shell(`${label}优培`, "Parent Coaching", "←", `
+  root.innerHTML = shell(wb?.title || member?.name || "家长工作台", wb?.subtitle || "Coach", "←", `
     <div class="coach-card coach-card--${role}">
       <div class="coach-card__head">${renderAvatar(member, "coach-card__avatar")}
-        <div><h3>${member?.name || label}</h3><div class="tag-row">${tagsHTML(member?.personalityTags)}</div></div>
+        <div><span class="member-role">${formatMemberRoleLine(member)}</span>
+        <div class="tag-row">${tagsHTML(member?.personalityTags)}</div></div>
       </div>
     </div>
     ${tip}
@@ -1764,6 +1766,7 @@ function parentProfileForm(member, role, prefix) {
   return `<form class="form card-block" id="${prefix}-f"><h3>${role === "father" ? "爸爸" : "妈妈"}资料</h3>
     <label class="field"><span>姓名</span><input name="name" value="${member.name || ""}" /></label>
     ${AvatarPickerHTML({ name: `${prefix}Avatar`, value: member.avatar || (role === "father" ? "👨" : "👩"), imageValue: member.avatarImage || "", label: "头像", presets: AVATAR_PRESETS[role] })}
+    ${TagSelectHTML({ name: `${prefix}SystemRoles`, label: "系统角色（可选，可多选）", presets: SYSTEM_ROLE_OPTIONS, selected: getMemberSystemRoles(member) })}
     ${TagSelectHTML({ name: `${prefix}Hobbies`, label: "爱好", presets: hobbies, selected: member.hobbies })}
     ${TagSelectHTML({ name: `${prefix}Tags`, label: "性格标签", presets: presets, selected: member.personalityTags })}
     ${TagSelectHTML({ name: `${prefix}Companion`, label: "陪伴方式", presets: companion, selected: member.coachingStyle })}
@@ -2028,6 +2031,7 @@ function renderProfileSection(root, section) {
         hobbies: tagList(fd.get(`${prefix}Hobbies`)),
         personalityTags: tagList(fd.get(`${prefix}Tags`)),
         coachingStyle: tagList(fd.get(`${prefix}Companion`)),
+        systemRoles: tagList(fd.get(`${prefix}SystemRoles`)),
         defaultEncourageStyle: fd.get("encourageStyle"),
       });
       showToast("资料已保存"); navigate("/profile");
@@ -2226,8 +2230,12 @@ function render() {
     if (!root) return;
     const fn = ROUTES[route.path] || renderBoot;
     if (route.path === "poster") fn(root, route.id);
-    else if (route.path === "coach-parent") fn(root, route.id || getCurrentRole());
-    else if (route.path === "profile") fn(root, route.id);
+    else if (route.path === "coach" && (route.id === "father" || route.id === "mother")) {
+      renderCoachParent(root, route.id);
+    } else if (route.path === "coach-parent") {
+      navigate(`/coach/${route.id || getCurrentRole()}`);
+      return;
+    } else if (route.path === "profile") fn(root, route.id);
     else fn(root);
     updateBottomNav(route, root, navigate, getUnreadCount());
   } catch (err) {
