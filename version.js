@@ -2,7 +2,7 @@
 export const APP_VERSION = "MVP Demo v1.0";
 export const APP_NAME = "复训星球";
 export const APP_TAGLINE = "错题复训清零，家庭陪伴成长。";
-export const SW_CACHE_ID = "fuxun-planet-v8";
+export const SW_CACHE_ID = "fuxun-planet-v9";
 
 export const MODULE_SLOGANS = {
   home: APP_TAGLINE,

@@ -898,7 +898,8 @@ function renderTrainPlay(root) {
         exitTraining(session); navigate("/train");
       }
     };
-    $("[data-go]", root)?.onclick = () => navigate("/train");
+    const goBtn = $("[data-go]", root);
+    if (goBtn) goBtn.onclick = () => navigate("/train");
     return;
   }
 
@@ -1785,11 +1786,26 @@ const ROUTES = {
   poster: (r, id) => renderPoster(r, id),
 };
 
+function formatBootErrorDetail(err) {
+  const name = err?.name || "Error";
+  const msg = err?.message || String(err || "未知错误");
+  const stack = (err?.stack || msg).split("\n").slice(0, 5).join("\n");
+  return [
+    `名称: ${name}`,
+    `信息: ${msg}`,
+    "",
+    "Stack (前 5 行):",
+    stack,
+    "",
+    `URL: ${location.href}`,
+    `版本: ${APP_VERSION}`,
+  ].join("\n");
+}
+
 export function showBootError(err) {
   const root = document.getElementById("app-root");
   if (!root) return;
-  const msg = err?.message || String(err || "未知错误");
-  const detail = err?.stack ? err.stack.split("\n").slice(0, 4).join("\n") : msg;
+  const detail = formatBootErrorDetail(err);
   root.innerHTML = `<div class="page page--error"><div class="error-card">
     <h1>复训星球加载失败</h1>
     <p>页面加载遇到问题，请刷新或清除缓存后重试。</p>
@@ -1814,7 +1830,7 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=8`;
+  location.href = `${location.pathname}?v=9`;
 }
 
 function render() {
@@ -1867,7 +1883,7 @@ function bindGlobalHandlers() {
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.register("./service-worker.js?v=8");
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=9");
     if (reg.waiting && navigator.serviceWorker.controller) {
       reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }
