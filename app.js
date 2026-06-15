@@ -2015,11 +2015,12 @@ function bindParentLedgerToggle(root, familyId, userRole) {
   const panel = $("#parent-ledger", root);
   const btn = $("[data-toggle-ledger]", root);
   if (!panel || !btn) return;
-  const txs = getPointTransactionsForViewer(familyId, userRole, { limit: 30 });
-  panel.innerHTML = `<h4>积分记录</h4>${renderPointLedgerHTML(txs, "你还没有积分流水记录。")}`;
   btn.addEventListener("click", () => {
     panel.classList.toggle("hidden");
-    btn.textContent = panel.classList.contains("hidden") ? "进入积分记录" : "收起积分记录";
+    const total = panel.querySelectorAll(".ledger-item").length;
+    btn.textContent = panel.classList.contains("hidden")
+      ? `查看全部（${total} 条）`
+      : "收起全部记录";
   });
 }
 
@@ -2411,14 +2412,14 @@ function bindParentPointsForms(root, role) {
 function renderFatherFirstScreen(member, wb) {
   return `<section class="planet-card workbench-first workbench-first--father">
     <div class="workbench-first__toolbar">
-      <button type="button" class="btn btn--ghost btn--sm btn--touch workbench-first__back" data-go="/coach">← 总览</button>
+      <button type="button" class="btn btn--ghost btn--sm btn--touch workbench-first__back" data-go="/coach">← 返回总览</button>
     </div>
     <div class="workbench-first__head">
       ${renderAvatar(member, "workbench-first__avatar")}
       <div>
         <p class="page-en">${wb?.subtitle || "Growth Investor"}</p>
-        <h2 class="workbench-first__title">${wb?.title || `${member?.name || "爸爸"} 的成长投资官工作台`}</h2>
-        <p class="page-guide">${PAGE_GUIDES.father}</p>
+        <h2 class="workbench-first__title">${wb?.title || `${member?.name || "Ryan"} 的成长投资官工作台`}</h2>
+        <p class="page-guide page-guide--short">${wb?.tagline || "先看见孩子的努力，再给出成长奖励与方法。"}</p>
       </div>
     </div>
   </section>`;
@@ -2427,14 +2428,14 @@ function renderFatherFirstScreen(member, wb) {
 function renderMotherFirstScreen(member, wb) {
   return `<section class="planet-card workbench-first workbench-first--mother">
     <div class="workbench-first__toolbar">
-      <button type="button" class="btn btn--ghost btn--sm btn--touch workbench-first__back" data-go="/coach">← 总览</button>
+      <button type="button" class="btn btn--ghost btn--sm btn--touch workbench-first__back" data-go="/coach">← 返回总览</button>
     </div>
     <div class="workbench-first__head">
       ${renderAvatar(member, "workbench-first__avatar")}
       <div>
         <p class="page-en">${wb?.subtitle || "Care & Honor Coach"}</p>
-        <h2 class="workbench-first__title">${wb?.title || `${member?.name || "妈妈"} 的陪伴荣誉官工作台`}</h2>
-        <p class="page-guide">${PAGE_GUIDES.mother}</p>
+        <h2 class="workbench-first__title">${wb?.title || `${member?.name || "Sara"} 的陪伴荣誉官工作台`}</h2>
+        <p class="page-guide page-guide--short">${wb?.tagline || "先看见孩子的状态，再用温暖鼓励陪他继续。"}</p>
       </div>
     </div>
   </section>`;
@@ -2443,48 +2444,49 @@ function renderMotherFirstScreen(member, wb) {
 function renderFatherWalletCard(familyId, wallet) {
   if (!wallet) return `<section class="card-block workbench-wallet"><p class="hint">钱包余额仅在工作台与孩子荣誉室中可见。</p></section>`;
   const w = getFatherTodayWalletStats(familyId, wallet);
+  const rewardCount = (w.cards || 0) + (w.praiseLetters || 0) + (w.medals || 0);
   return `<section class="card-block workbench-wallet workbench-wallet--father">
-    <h3>Ryan 钱包与今日统计</h3>
+    <h3>Ryan 钱包</h3>
     <div class="stat-strip stat-strip--3">
       <div class="stat-strip__item"><span>钱包余额</span><strong>${w.balance}</strong></div>
-      <div class="stat-strip__item"><span>今日已奖励</span><strong>${w.todaySent}</strong></div>
-      <div class="stat-strip__item"><span>今日荣誉</span><strong class="stat-strip__compact">${w.medals} 奖章 · ${w.praiseLetters} 表扬信 · ${w.cards} 贺卡</strong></div>
+      <div class="stat-strip__item"><span>今日已发放积分</span><strong>${w.todaySent}</strong></div>
+      <div class="stat-strip__item"><span>今日已发奖励</span><strong>${rewardCount}</strong></div>
     </div>
-    <p class="hint page-guide--compact">${PAGE_GUIDES.fatherReward}</p>
   </section>`;
 }
 
 function renderMotherWalletCard(familyId, wallet) {
   if (!wallet) return `<section class="card-block workbench-wallet"><p class="hint">钱包余额仅在工作台与孩子荣誉室中可见。</p></section>`;
   const w = getMotherTodayWalletStats(familyId, wallet);
+  const encourageCount = (w.cards || 0) + (w.honors || 0) + (w.familyRewards || 0);
   return `<section class="card-block workbench-wallet workbench-wallet--mother">
-    <h3>Sara 钱包与今日统计</h3>
-    <div class="stat-strip stat-strip--4">
+    <h3>Sara 钱包</h3>
+    <div class="stat-strip stat-strip--3">
       <div class="stat-strip__item"><span>钱包余额</span><strong>${w.balance}</strong></div>
-      <div class="stat-strip__item"><span>今日鼓励</span><strong>${w.cards}</strong></div>
-      <div class="stat-strip__item"><span>今日荣誉</span><strong>${w.honors}</strong></div>
-      <div class="stat-strip__item"><span>今日亲子奖励</span><strong>${w.familyRewards}</strong></div>
+      <div class="stat-strip__item"><span>今日已鼓励积分</span><strong>${w.todaySent}</strong></div>
+      <div class="stat-strip__item"><span>今日已发鼓励</span><strong>${encourageCount}</strong></div>
     </div>
-    <p class="hint">今日明日小目标：${w.planSuggestions} 条 · 今日已发积分 ${w.todaySent}</p>
-    <p class="hint page-guide--compact">${PAGE_GUIDES.motherCompanion}</p>
   </section>`;
 }
 
 function renderWorkbenchFormSlot(role) {
   const formId = role === "father" ? "father-tool-form" : "mother-tool-form";
-  const title = role === "father" ? "发放奖励" : "发放陪伴奖励";
-  return `<section class="card-block workbench-form-slot">
-    <h3>${title}</h3>
-    <p class="hint workbench-form-slot__empty">先查看孩子结果，选择场景与工具后，在此确认并发放。</p>
-    <div id="${formId}" class="father-tool-form workbench-form-panel hidden"></div>
+  return `<section class="card-block workbench-form-slot workbench-form-slot--empty">
+    <div id="${formId}" class="workbench-form-panel hidden"></div>
   </section>`;
 }
 
-function renderWorkbenchLedger(wallet) {
-  if (!wallet) return "";
+function renderWorkbenchLedger(wallet, familyId, viewerRole) {
+  if (!wallet || !familyId) return "";
+  const allTxs = getPointTransactionsForViewer(familyId, viewerRole, { limit: 30 });
+  const previewTxs = allTxs.slice(0, 3);
   return `<section class="card-block workbench-ledger">
-    <button type="button" class="btn btn--ghost btn--block btn--sm btn--ledger" data-toggle-ledger>积分记录</button>
-    <div id="parent-ledger" class="ledger-panel hidden"></div>
+    <h3>积分记录</h3>
+    <div class="workbench-ledger-preview">${renderPointLedgerHTML(previewTxs, "暂无积分流水记录。")}</div>
+    ${allTxs.length > 3
+    ? `<button type="button" class="btn btn--ghost btn--sm btn--block" data-toggle-ledger>查看全部（${allTxs.length} 条）</button>`
+    : ""}
+    <div id="parent-ledger" class="ledger-panel hidden">${renderPointLedgerHTML(allTxs, "")}</div>
   </section>`;
 }
 
@@ -2555,120 +2557,125 @@ function renderFatherWalletHero(member, wallet, wb, familyId) {
   </section>`;
 }
 
+const FATHER_QUICK_SCENES = [
+  { key: "learning", label: "学习成长" },
+  { key: "family", label: "妈妈守护" },
+  { key: "plan", label: "父子约定" },
+  { key: "custom", label: "自定义" },
+];
+
+const FATHER_METHOD_TYPES = [
+  "错题未清零", "复训方法", "时间管理", "手机控制", "情绪压力", "阅读词汇", "自定义",
+];
+
+const MOTHER_COMPANION_ACTIVITIES = [
+  "一起散步", "一起吃饭聊天", "一起整理书桌", "一起复盘错题", "一起运动", "睡前聊 10 分钟", "自定义",
+];
+
 function renderFatherChildDigest(snapshot, student, ai) {
   const s = snapshot;
   const growthLine = ai?.highlight || "完成打卡与日常努力，值得奖励。";
   return `<section class="card-block father-digest workbench-digest">
     <h3>${student?.name || "Daniel"} 今日关键结果</h3>
-    <p class="hint">父母做奖励判断的第一信息源，不在此填写孩子打卡。</p>
-    <div class="father-digest__stats stat-grid">
+    <div class="father-digest__stats stat-grid stat-grid--compact">
       <div class="stat"><span>今日总分</span><strong>${s.totalScore != null ? formatScore(s.totalScore) : "—"}</strong></div>
-      <div class="stat"><span>今日完成率</span><strong>${s.completionRate != null ? `${s.completionRate}%` : "—"}</strong></div>
-      <div class="stat"><span>今日错题数</span><strong>${s.mistakeCount}</strong></div>
-      <div class="stat"><span>剩余错题数</span><strong>${s.remainingMistakes}</strong></div>
-      <div class="stat"><span>复训是否清零</span><strong>${s.retrainCleared ? "已清零" : "未清零"}</strong></div>
+      <div class="stat"><span>今日错题</span><strong>${s.mistakeCount}</strong></div>
+      <div class="stat"><span>剩余错题</span><strong>${s.remainingMistakes}</strong></div>
+      <div class="stat"><span>复训状态</span><strong>${s.retrainCleared ? "已清零" : "未清零"}</strong></div>
       <div class="stat"><span>训练正确率</span><strong>${s.trainingAccuracy != null ? `${s.trainingAccuracy}%` : "—"}</strong></div>
-      <div class="stat"><span>连续打卡天数</span><strong>${s.checkinStreak} 天</strong></div>
     </div>
-    <article class="father-digest__block">
-      <h4>今日特别表现</h4>
-      <p>${String(s.specialPerformanceText || "—").replace(/\n/g, "<br>")}</p>
-    </article>
-    <article class="father-digest__block">
-      <h4>今日最值得看见的成长行为</h4>
-      <p>${growthLine}</p>
-    </article>
+    <p class="workbench-digest__line"><strong>今日特别表现：</strong>${truncateLine(String(s.specialPerformanceText || "—"), 120)}</p>
     <p class="workbench-digest__ai-hint"><strong>今日最值得爸爸看见：</strong>${truncateLine(growthLine, 96)}</p>
   </section>`;
 }
 
-function renderFatherScenarios(selected = "", category = "learning") {
-  const cats = Object.entries(FATHER_REWARD_SCENARIOS);
-  const cards = cats.map(([key, c]) =>
-    `<button type="button" class="companion-cat-card father-cat-card ${key === category ? "is-active" : ""}" data-scene-cat="${key}">
-      <span class="companion-cat-card__icon">${c.icon || "✨"}</span>
-      <strong>${c.label}</strong>
-    </button>`
-  ).join("");
-  const active = FATHER_REWARD_SCENARIOS[category] || FATHER_REWARD_SCENARIOS.learning;
-  const chips = active.items.map((item) =>
-    `<button type="button" class="father-scene-chip ${selected === item.label ? "is-selected" : ""}" data-scene="${item.label}">${item.label}</button>`
-  ).join("");
-  return `<section class="card-block father-scenes">
-    <h3>爸爸奖励场景</h3>
-    <p class="hint">先选大类，再选小类，系统会自动生成标题、内容与建议积分。</p>
-    <input type="hidden" id="father-scenario" value="${selected}" />
-    <input type="hidden" id="father-scenario-cat" value="${category}" />
-    <div class="companion-cat-grid">${cards}</div>
-    <div class="father-scene-chips" id="father-scene-chips">${chips}</div>
-    <div id="father-scene-preview" class="companion-preview hidden"></div>
+function renderFatherQuickActions() {
+  return `<section class="card-block workbench-quick-actions workbench-quick-actions--father">
+    <h3>快速回应</h3>
+    <div class="quick-action-grid quick-action-grid--3">
+      <button type="button" class="btn btn--primary quick-action-btn" data-father-action="reward">成长奖励</button>
+      <button type="button" class="btn btn--ghost quick-action-btn" data-father-action="method">给方法</button>
+      <button type="button" class="btn btn--ghost quick-action-btn" data-father-action="pact">父子约定</button>
+    </div>
   </section>`;
 }
 
-function renderFatherRewardForm(tool, draft = {}, scen = {}) {
+function renderFatherGrowthRewardForm(draft = {}, scen = {}) {
   const category = scen.category || draft.category || "learning";
   const sub = scen.subcategory || draft.scenario || "";
-  const catOpts = Object.entries(FATHER_REWARD_SCENARIOS).map(([k, c]) =>
-    `<option value="${k}" ${category === k ? "selected" : ""}>${c.label}</option>`
+  const catOpts = FATHER_QUICK_SCENES.map((c) =>
+    `<option value="${c.key}" ${category === c.key ? "selected" : ""}>${c.label}</option>`
   ).join("");
   const subItems = FATHER_REWARD_SCENARIOS[category]?.items || [];
   const subOpts = subItems.map((i) =>
     `<option value="${i.label}" ${sub === i.label ? "selected" : ""}>${i.label}</option>`
   ).join("");
-  const toolOpts = Object.entries(FATHER_TOOL_LABELS).map(([k, label]) =>
-    `<option value="${k}" ${(draft.tool || tool) === k ? "selected" : ""}>${label}</option>`
-  ).join("");
-  const defaults = getFatherToolDefaults(tool);
-  const pts = draft.points ?? defaults.points ?? FATHER_REWARD_POINTS[tool] ?? 500;
-  const titlePh = draft.titlePlaceholder || defaults.titlePlaceholder || "标题";
-  const medalOpts = (draft.tool || tool) === "medal"
-    ? `<label class="field"><span>奖章类型</span><select name="medalType" required>
+  const tool = draft.tool || "card";
+  const pts = draft.points ?? FATHER_REWARD_POINTS[tool] ?? 500;
+  return `<form class="form workbench-light-form" id="father-reward-f">
+    <h4>成长奖励</h4>
+    <label class="field"><span>奖励场景</span><select name="scenarioCategory" id="father-form-cat">${catOpts}</select></label>
+    <label class="field"><span>具体行为</span><select name="scenarioSub" id="father-form-sub" required><option value="">请选择</option>${subOpts}</select></label>
+    <fieldset class="field field--inline">
+      <legend>奖励形式</legend>
+      <label class="chip-radio"><input type="radio" name="rewardTool" value="card" ${tool === "card" ? "checked" : ""} /><span>贺卡</span></label>
+      <label class="chip-radio"><input type="radio" name="rewardTool" value="praise-letter" ${tool === "praise-letter" ? "checked" : ""} /><span>表扬信</span></label>
+      <label class="chip-radio"><input type="radio" name="rewardTool" value="medal" ${tool === "medal" ? "checked" : ""} /><span>奖章</span></label>
+    </fieldset>
+    <label class="field field--medal"><span>奖章类型（选奖章时填写）</span><select name="medalType">
         <option value="">请选择</option>
         ${FATHER_MEDAL_TYPES.map((m) => `<option value="${m}" ${draft.medalType === m ? "selected" : ""}>${m}</option>`).join("")}
-      </select></label>` : "";
-  const pactFields = tool === "father-pact"
-    ? `<label class="field"><span>约定目标</span><input name="pactGoal" required placeholder="例如：明天完成 3 道错题复训" /></label>
-      <label class="field"><span>完成时间</span><input name="pactDeadline" required placeholder="例如：明天 20:00 前" /></label>
-      <label class="field"><span>爸爸承诺怎么陪</span><textarea name="pactSupport" rows="2" required placeholder="例如：陪你一起复盘 15 分钟"></textarea></label>` : "";
-  const submitLabel = FATHER_SUBMIT_LABELS[tool] || FATHER_SUBMIT_LABELS.card;
-  return `<form class="form father-reward-form" id="father-reward-f">
-    <h4>${FATHER_TOOL_LABELS[tool] || "发放奖励"}</h4>
-    <label class="field"><span>奖励场景大类</span><select name="scenarioCategory" id="father-form-cat">${catOpts}</select></label>
-    <label class="field"><span>奖励场景小类</span><select name="scenarioSub" id="father-form-sub" required><option value="">请选择</option>${subOpts}</select></label>
-    <label class="field"><span>自定义补充说明</span><textarea name="customNote" rows="2" placeholder="可补充今天值得被正式认可的具体细节">${draft.customNote || ""}</textarea></label>
-    <label class="field"><span>奖励类型</span><select name="rewardTool" id="father-form-tool">${toolOpts}</select></label>
-    ${medalOpts}${pactFields}
-    <label class="field"><span>标题</span><input name="title" value="${draft.title || ""}" placeholder="${titlePh}" /></label>
-    <label class="field"><span>内容</span><textarea name="content" rows="4">${draft.content || defaults.content || ""}</textarea></label>
-    <label class="field"><span>奖励积分</span><input name="points" type="number" min="1" max="800" value="${pts}" /></label>
+      </select></label>
+    <label class="field"><span>标题</span><input name="title" value="${draft.title || ""}" placeholder="奖励标题" /></label>
+    <label class="field"><span>内容</span><textarea name="content" rows="3">${draft.content || ""}</textarea></label>
+    <label class="field"><span>积分</span><input name="points" type="number" min="1" max="800" value="${pts}" /></label>
     <label class="toggle"><input type="checkbox" name="addToHonor" checked /><span>进入荣誉室</span></label>
     <label class="toggle"><input type="checkbox" name="notifyChild" checked /><span>通知孩子</span></label>
     <input type="hidden" name="scenario" value="${sub}" />
-    <button class="btn btn--primary btn--block">${submitLabel}</button>
+    <button class="btn btn--primary btn--block">确认发放成长奖励</button>
   </form>`;
 }
 
-function renderFatherToolbox(wallet) {
-  const tools = [
-    { id: "card", icon: "💌", name: "发爸爸贺卡", pts: FATHER_REWARD_POINTS.card, desc: "轻量鼓励、完成任务、复训进步" },
-    { id: "praise-letter", icon: "📝", name: "写爸爸表扬信", pts: FATHER_REWARD_POINTS["praise-letter"], desc: "特别表现、高光时刻、坚持突破" },
-    { id: "medal", icon: "🏅", name: "发爸爸奖章", pts: FATHER_REWARD_POINTS.medal, desc: "错题清零、自驱学习、家庭责任" },
-    { id: "method-card", icon: "💡", name: "发方法卡", pts: FATHER_REWARD_POINTS["method-card"], desc: "错题未清零、需要下一步建议" },
-    { id: "father-pact", icon: "🤝", name: "发父子约定", pts: FATHER_REWARD_POINTS["father-pact"], desc: "设定明天或本周目标" },
-    { id: "deduct", icon: "⚠️", name: "扣分提醒", pts: "≤200", desc: "必须填写原因、建议与明天怎么做" },
-  ];
-  return `<section class="card-block father-toolbox">
-    <h3>爸爸奖励工具箱</h3>
-    <div class="father-tool-grid">${tools.map((t) => {
-      const afford = t.id === "deduct" || canFatherAfford(t.id, wallet);
-      return `<button type="button" class="father-tool-btn ${afford ? "" : "is-disabled"}" data-father-tool="${t.id}" ${afford ? "" : "disabled"}>
-        <span class="father-tool-btn__icon">${t.icon}</span>
-        <strong>${t.name}</strong>
-        <span class="hint">${t.desc}</span>
-        <span class="father-tool-btn__pts">${t.id === "deduct" ? "上限 200" : `默认 ${t.pts} 分`}</span>
-      </button>`;
-    }).join("")}</div>
-  </section>`;
+function renderFatherMethodForm(draft = {}) {
+  const pts = draft.points ?? FATHER_REWARD_POINTS["method-card"] ?? 100;
+  const typeOpts = FATHER_METHOD_TYPES.map((t) =>
+    `<option value="${t}" ${draft.problemType === t ? "selected" : ""}>${t}</option>`
+  ).join("");
+  return `<form class="form workbench-light-form" id="father-method-f">
+    <h4>给方法</h4>
+    <label class="field"><span>问题类型</span><select name="problemType" required>${typeOpts}</select></label>
+    <label class="field"><span>方法建议</span><textarea name="content" rows="4" required placeholder="写下下一步可以怎么做">${draft.content || ""}</textarea></label>
+    <label class="toggle"><input type="checkbox" name="notifyChild" checked /><span>通知孩子</span></label>
+    <label class="field"><span>积分</span><input name="points" type="number" min="1" max="200" value="${pts}" /></label>
+    <button class="btn btn--ghost btn--block">发送方法卡</button>
+  </form>`;
+}
+
+function renderFatherPactForm(draft = {}) {
+  const pts = draft.points ?? FATHER_REWARD_POINTS["father-pact"] ?? 300;
+  return `<form class="form workbench-light-form" id="father-pact-f">
+    <h4>父子约定</h4>
+    <label class="field"><span>约定目标</span><input name="pactGoal" required placeholder="例如：明天完成 3 道错题复训" /></label>
+    <label class="field"><span>完成时间</span><input name="pactDeadline" required placeholder="例如：明天 20:00 前" /></label>
+    <label class="field"><span>爸爸怎么陪</span><textarea name="pactSupport" rows="2" required placeholder="例如：陪你一起复盘 15 分钟"></textarea></label>
+    <label class="field"><span>完成后奖励积分</span><input name="points" type="number" min="1" max="800" value="${pts}" /></label>
+    <label class="toggle"><input type="checkbox" name="notifyChild" checked /><span>通知孩子</span></label>
+    <button class="btn btn--primary btn--block">发起父子约定</button>
+  </form>`;
+}
+
+function renderFatherRemindFold() {
+  return `<details class="workbench-remind-fold card-block">
+    <summary class="workbench-remind-fold__summary">需要提醒或扣分？</summary>
+    <form class="form workbench-remind-form" id="father-deduct-f">
+      <p class="hint">这是提醒与改进建议，不是惩罚。请填写原因与明天怎么做。</p>
+      <label class="field"><span>提醒原因</span><input name="reason" required placeholder="今天需要改进的地方" /></label>
+      <label class="field"><span>改进建议</span><textarea name="advice" rows="2" required></textarea></label>
+      <label class="field"><span>明天怎么做</span><textarea name="tomorrow" rows="2" required></textarea></label>
+      <label class="field"><span>扣分分值</span><input name="points" type="number" min="1" max="200" value="20" /></label>
+      <button class="btn btn--ghost btn--block">确认提醒并扣分</button>
+    </form>
+  </details>`;
 }
 
 function renderParentHonorLink(hint) {
@@ -2758,66 +2765,67 @@ function bindSpecialPerformanceWorkbench(root, record, role, ctx) {
 }
 
 function showWorkbenchFormPanel(formBox) {
+  const slot = formBox?.closest(".workbench-form-slot");
   formBox?.classList.remove("hidden");
-  formBox?.closest(".workbench-form-slot")?.querySelector(".workbench-form-slot__empty")?.classList.add("hidden");
+  slot?.classList.remove("workbench-form-slot--empty");
 }
 
 function hideWorkbenchFormPanel(formBox) {
-  formBox?.classList.add("hidden");
-  formBox?.closest(".workbench-form-slot")?.querySelector(".workbench-form-slot__empty")?.classList.remove("hidden");
+  if (!formBox) return;
+  formBox.classList.add("hidden");
+  formBox.innerHTML = "";
+  formBox.closest(".workbench-form-slot")?.classList.add("workbench-form-slot--empty");
 }
 
-function bindFatherWorkbench(root, ctx) {
+function bindFatherRewardForm(root, formBox, ctx) {
   const { member, student, user, todayRec, ai } = ctx;
-  let selectedScenario = ai.scenario || "";
-  let selectedCategory = findFatherCategoryByLabel(selectedScenario) || "learning";
-  let rewardDraft = selectedScenario
-    ? buildFatherRewardDraft(selectedCategory, selectedScenario)
-    : null;
-  let activeTool = rewardDraft?.tool || "card";
+  const selectedCategory = findFatherCategoryByLabel(ai.scenario || "") || "learning";
+  const selectedScenario = ai.scenario || "";
+  const form = $("#father-reward-f", formBox);
+  if (!form) return;
 
-  root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
-  bindParentLedgerToggle(root, user?.familyId, user?.role);
-  bindSpecialPerformanceWorkbench(root, todayRec, "father", { member, student, user });
+  const notifyChild = (payload) => notifyStudentFromParent("father", member, student, payload);
 
-  const scenarioInput = $("#father-scenario", root);
-  const categoryInput = $("#father-scenario-cat", root);
-  const chipsHost = $("#father-scene-chips", root);
-  const previewBox = $("#father-scene-preview", root);
-  const formBox = $("#father-tool-form", root);
-
-  const notifyChild = (payload) => {
-    notifyStudentFromParent("father", member, student, payload);
+  const refreshFromSelectors = () => {
+    const cat = $("#father-form-cat", form)?.value || selectedCategory;
+    const sub = $("#father-form-sub", form)?.value || "";
+    const t = form.querySelector('[name="rewardTool"]:checked')?.value || "card";
+    if (!sub) return;
+    const next = buildFatherRewardDraft(cat, sub, "", t);
+    const titleEl = form.querySelector('[name="title"]');
+    const contentEl = form.querySelector('[name="content"]');
+    const ptsEl = form.querySelector('[name="points"]');
+    if (titleEl && !titleEl.value) titleEl.value = next.title;
+    if (contentEl && !contentEl.value) contentEl.value = next.content;
+    if (ptsEl) ptsEl.value = next.points;
+    form.querySelector('[name="scenario"]').value = next.scenario;
   };
 
-  const updatePreview = (draft) => {
-    if (!previewBox || !draft) {
-      previewBox?.classList.add("hidden");
-      return;
-    }
-    previewBox.classList.remove("hidden");
-    previewBox.innerHTML = `<p class="hint"><strong>推荐：</strong>${FATHER_TOOL_LABELS[draft.tool] || draft.tool} · ${draft.points} 分</p>
-      <p><strong>${draft.title}</strong></p>
-      <p class="hint">${draft.content.slice(0, 120)}${draft.content.length > 120 ? "…" : ""}</p>`;
-  };
+  $("#father-form-cat", form)?.addEventListener("change", () => {
+    const cat = $("#father-form-cat", form).value;
+    const subSel = $("#father-form-sub", form);
+    const items = FATHER_REWARD_SCENARIOS[cat]?.items || [];
+    subSel.innerHTML = `<option value="">请选择</option>${items.map((i) => `<option value="${i.label}">${i.label}</option>`).join("")}`;
+  });
+  $("#father-form-sub", form)?.addEventListener("change", refreshFromSelectors);
+  form.querySelectorAll('[name="rewardTool"]').forEach((r) => r.addEventListener("change", () => {
+    const t = form.querySelector('[name="rewardTool"]:checked')?.value || "card";
+    const ptsEl = form.querySelector('[name="points"]');
+    if (ptsEl) ptsEl.value = FATHER_REWARD_POINTS[t] ?? 500;
+    refreshFromSelectors();
+  }));
 
-  const submitReward = (tool, fd) => {
-    const scenario = fd.get("scenario") || fd.get("scenarioSub") || selectedScenario || "";
-    let content = fd.get("content") || "";
-    if (tool === "father-pact") {
-      const pactBody = [
-        fd.get("pactGoal") && `约定目标：${fd.get("pactGoal")}`,
-        fd.get("pactDeadline") && `完成时间：${fd.get("pactDeadline")}`,
-        fd.get("pactSupport") && `爸爸承诺：${fd.get("pactSupport")}`,
-        content,
-      ].filter(Boolean).join("\n");
-      content = pactBody;
-    }
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const tool = fd.get("rewardTool") || "card";
+    const scenario = fd.get("scenarioSub") || fd.get("scenario") || selectedScenario || "";
+    const content = fd.get("content") || "";
     const notify = fd.get("notifyChild") !== null;
     const r = submitFatherReward({
       tool,
       scenario,
-      scenarioCategory: fd.get("scenarioCategory") || categoryInput?.value || selectedCategory,
+      scenarioCategory: fd.get("scenarioCategory") || selectedCategory,
       medalType: fd.get("medalType") || "",
       title: fd.get("title") || "",
       content,
@@ -2838,152 +2846,147 @@ function bindFatherWorkbench(root, ctx) {
         rewardType: tool === "medal" ? (fd.get("medalType") || "奖章") : (tool === "praise-letter" ? "表扬信" : "精神鼓励"),
       });
     }
-    showToast(r.message || "奖励已发放，成长大盘已更新");
+    showToast(r.message || "成长奖励已发放");
     hideWorkbenchFormPanel(formBox);
     render();
   };
+}
 
-  const bindRewardForm = (tool) => {
-    const form = $("#father-reward-f", formBox);
-    if (!form) return;
-    const refreshFromSelectors = () => {
-      const cat = $("#father-form-cat", form)?.value || selectedCategory;
-      const sub = $("#father-form-sub", form)?.value || "";
-      const note = form.querySelector('[name="customNote"]')?.value || "";
-      const t = $("#father-form-tool", form)?.value || tool;
-      if (!sub) return;
-      const next = buildFatherRewardDraft(cat, sub, note, t);
-      const titleEl = form.querySelector('[name="title"]');
-      const contentEl = form.querySelector('[name="content"]');
-      const ptsEl = form.querySelector('[name="points"]');
-      if (titleEl) titleEl.value = next.title;
-      if (contentEl) contentEl.value = next.content;
-      if (ptsEl) ptsEl.value = next.points;
-      form.querySelector('[name="scenario"]').value = next.scenario;
-      const medalSel = form.querySelector('[name="medalType"]');
-      if (medalSel && next.medalType) medalSel.value = next.medalType;
-    };
-    $("#father-form-cat", form)?.addEventListener("change", () => {
-      const cat = $("#father-form-cat", form).value;
-      const subSel = $("#father-form-sub", form);
-      const items = FATHER_REWARD_SCENARIOS[cat]?.items || [];
-      subSel.innerHTML = `<option value="">请选择</option>${items.map((i) => `<option value="${i.label}">${i.label}</option>`).join("")}`;
-    });
-    $("#father-form-sub", form)?.addEventListener("change", refreshFromSelectors);
-    $("#father-form-tool", form)?.addEventListener("change", refreshFromSelectors);
-    form.querySelector('[name="customNote"]')?.addEventListener("input", refreshFromSelectors);
-    form.onsubmit = (e) => {
-      e.preventDefault();
-      submitReward($("#father-form-tool", form)?.value || tool, new FormData(form));
-    };
-  };
+function bindFatherWorkbench(root, ctx) {
+  const { member, student, user, todayRec, ai, wallet } = ctx;
+  const selectedCategory = findFatherCategoryByLabel(ai.scenario || "") || "learning";
+  const selectedScenario = ai.scenario || "";
+  const rewardDraft = selectedScenario
+    ? buildFatherRewardDraft(selectedCategory, selectedScenario)
+    : getFatherToolDefaults("card");
+  const formBox = $("#father-tool-form", root);
 
-  const openRewardForm = (tool, draft = rewardDraft) => {
-    activeTool = tool;
-    const defaults = getFatherToolDefaults(tool);
-    const merged = {
-      ...defaults,
-      ...(draft || {}),
-      tool,
-      category: draft?.category || selectedCategory,
-      scenario: draft?.scenario || selectedScenario,
-    };
-    if (!merged.title && defaults.title) merged.title = defaults.title;
-    if (!merged.content && defaults.content) merged.content = defaults.content;
-    const scen = { category: selectedCategory, subcategory: selectedScenario };
+  root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
+  bindParentLedgerToggle(root, user?.familyId, user?.role);
+
+  const notifyChild = (payload) => notifyStudentFromParent("father", member, student, payload);
+
+  const openForm = (html, binder) => {
     showWorkbenchFormPanel(formBox);
-    formBox.innerHTML = renderFatherRewardForm(tool, merged, scen);
-    bindRewardForm(tool);
+    formBox.innerHTML = html;
+    binder?.();
     formBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
 
-  const applyScenario = (cat, sub) => {
-    selectedCategory = cat;
-    selectedScenario = sub;
-    if (scenarioInput) scenarioInput.value = sub;
-    if (categoryInput) categoryInput.value = cat;
-    rewardDraft = buildFatherRewardDraft(cat, sub);
-    updatePreview(rewardDraft);
-    if (!formBox?.classList.contains("hidden")) {
-      openRewardForm(activeTool, rewardDraft);
-    }
-  };
-
-  const paintChips = (cat) => {
-    const c = FATHER_REWARD_SCENARIOS[cat];
-    if (!chipsHost || !c) return;
-    chipsHost.innerHTML = c.items.map((item) =>
-      `<button type="button" class="father-scene-chip ${selectedScenario === item.label ? "is-selected" : ""}" data-scene="${item.label}">${item.label}</button>`
-    ).join("");
-    chipsHost.querySelectorAll("[data-scene]").forEach((b) => b.addEventListener("click", () => {
-      applyScenario(cat, b.dataset.scene);
-      paintChips(cat);
-    }));
-  };
-
-  root.querySelectorAll("[data-scene-cat]").forEach((b) => b.addEventListener("click", () => {
-    selectedCategory = b.dataset.sceneCat;
-    if (categoryInput) categoryInput.value = selectedCategory;
-    root.querySelectorAll("[data-scene-cat]").forEach((t) => t.classList.toggle("is-active", t.dataset.sceneCat === selectedCategory));
-    paintChips(selectedCategory);
-  }));
-  paintChips(selectedCategory);
-  if (rewardDraft) updatePreview(rewardDraft);
-
-  root.querySelectorAll("[data-father-tool]").forEach((btn) => btn.addEventListener("click", () => {
-    const tool = btn.dataset.fatherTool;
-    if (tool === "deduct") {
-      showWorkbenchFormPanel(formBox);
-      formBox.innerHTML = `<form class="form" id="father-deduct-f">
-        <h4>扣分提醒</h4>
-        <label class="field"><span>扣分分值</span><input name="points" type="number" min="1" max="200" value="20" /></label>
-        <label class="field"><span>扣分原因</span><input name="reason" required /></label>
-        <label class="field"><span>改进建议</span><textarea name="advice" rows="2" required></textarea></label>
-        <label class="field"><span>明天怎么做</span><textarea name="tomorrow" rows="2" required></textarea></label>
-        <button class="btn btn--ghost btn--block">确认扣分提醒</button></form>`;
-      $("#father-deduct-f", formBox).onsubmit = (e) => {
-        e.preventDefault();
-        const fd = new FormData(e.target);
-        const advice = `${fd.get("advice")}\n明天怎么做：${fd.get("tomorrow")}`;
-        const dr = deductStudent({
-          parentRole: "father",
-          points: fd.get("points"),
-          reason: fd.get("reason"),
-          advice,
-          relatedRecordId: todayRec?.recordId,
-        });
-        if (!dr.ok) return showToast(dr.error, "error");
-        saveCoach("father", "deduct", { points: fd.get("points"), reason: fd.get("reason"), advice });
-        notifyChild({ title: "爸爸的提醒", content: fd.get("reason"), rewardType: "改进提醒" });
-        showToast(dr.message || "扣分提醒已记录");
-        hideWorkbenchFormPanel(formBox);
-        render();
-      };
-      formBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  root.querySelectorAll("[data-father-action]").forEach((btn) => btn.addEventListener("click", () => {
+    const action = btn.dataset.fatherAction;
+    if (action === "reward") {
+      openForm(
+        renderFatherGrowthRewardForm(rewardDraft, { category: selectedCategory, subcategory: selectedScenario }),
+        () => bindFatherRewardForm(root, formBox, ctx),
+      );
       return;
     }
-    const draft = selectedScenario
-      ? buildFatherRewardDraft(selectedCategory, selectedScenario, rewardDraft?.customNote || "", tool)
-      : getFatherToolDefaults(tool);
-    openRewardForm(tool, draft);
+    if (action === "method") {
+      openForm(renderFatherMethodForm({ content: ai.rewardMethod === "方法卡" ? ai.fatherMessage : "" }), () => {
+        const form = $("#father-method-f", formBox);
+        form?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const fd = new FormData(form);
+          const problem = fd.get("problemType") || "学习方法";
+          const body = fd.get("content") || "";
+          const notify = fd.get("notifyChild") !== null;
+          const r = submitFatherReward({
+            tool: "method-card",
+            scenario: problem,
+            scenarioCategory: "learning",
+            title: `学习方法卡 · ${problem}`,
+            content: body,
+            points: fd.get("points"),
+            relatedRecordId: todayRec?.recordId,
+            notifyStudent: notify,
+            addToHonor: true,
+            member,
+            student,
+            familyId: user?.familyId,
+          });
+          if (!r.ok) return showToast(r.error, "error");
+          if (notify) notifyChild({ title: r.displayTitle, content: body, style: "学习方法", rewardType: "学习方法卡" });
+          showToast(r.message || "方法卡已发送");
+          hideWorkbenchFormPanel(formBox);
+          render();
+        });
+      });
+      return;
+    }
+    if (action === "pact") {
+      openForm(renderFatherPactForm(), () => {
+        const form = $("#father-pact-f", formBox);
+        form?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const fd = new FormData(form);
+          const content = [
+            fd.get("pactGoal") && `约定目标：${fd.get("pactGoal")}`,
+            fd.get("pactDeadline") && `完成时间：${fd.get("pactDeadline")}`,
+            fd.get("pactSupport") && `爸爸承诺：${fd.get("pactSupport")}`,
+          ].filter(Boolean).join("\n");
+          const notify = fd.get("notifyChild") !== null;
+          const r = submitFatherReward({
+            tool: "father-pact",
+            scenario: "父子约定",
+            scenarioCategory: "plan",
+            title: "父子成长约定",
+            content,
+            points: fd.get("points"),
+            relatedRecordId: todayRec?.recordId,
+            notifyStudent: notify,
+            addToHonor: true,
+            member,
+            student,
+            familyId: user?.familyId,
+          });
+          if (!r.ok) return showToast(r.error, "error");
+          if (notify) notifyChild({ title: r.displayTitle, content, style: "父子约定", rewardType: "父子约定" });
+          showToast(r.message || "父子约定已发起");
+          hideWorkbenchFormPanel(formBox);
+          render();
+        });
+      });
+    }
   }));
+
+  $("#father-deduct-f", root)?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const advice = `${fd.get("advice")}\n明天怎么做：${fd.get("tomorrow")}`;
+    const dr = deductStudent({
+      parentRole: "father",
+      points: fd.get("points"),
+      reason: fd.get("reason"),
+      advice,
+      relatedRecordId: todayRec?.recordId,
+    });
+    if (!dr.ok) return showToast(dr.error, "error");
+    saveCoach("father", "deduct", { points: fd.get("points"), reason: fd.get("reason"), advice });
+    notifyChild({ title: "爸爸的提醒", content: fd.get("reason"), rewardType: "改进提醒" });
+    showToast(dr.message || "提醒已记录");
+    e.target.reset();
+    render();
+  });
 }
 
 function renderFatherWorkbench(root, ctx) {
   const { member, student, user, wallet, wb, todayRec } = ctx;
   const snapshot = buildFatherChildSnapshot(user.familyId, student?.memberId);
   const ai = buildFatherAiSuggestion(snapshot);
-  const sceneCat = findFatherCategoryByLabel(ai.scenario || "") || "learning";
+  const walletViewer = getCoachWorkbenchWalletViewerRole(user, "father", {
+    isDemoAccount: isDemoAccount(user),
+    isDemoFamily: isDemoFamily(user?.familyId),
+  });
 
   root.innerHTML = `<div class="page page--workbench page--father">
     ${renderFatherFirstScreen(member, wb)}
     ${renderFatherChildDigest(snapshot, student, ai)}
     ${renderFatherWalletCard(user.familyId, wallet)}
-    ${renderSpecialPerformanceWorkbenchCard(todayRec, "father")}
-    ${renderFatherScenarios(ai.scenario || "", sceneCat)}
-    ${renderFatherToolbox(wallet)}
+    ${renderFatherQuickActions()}
     ${renderWorkbenchFormSlot("father")}
-    ${renderWorkbenchLedger(wallet)}
+    ${renderFatherRemindFold()}
+    ${renderWorkbenchLedger(wallet, user.familyId, walletViewer)}
   </div>`;
 
   bindFatherWorkbench(root, { member, student, user, todayRec, ai, wallet });
@@ -3025,60 +3028,33 @@ function renderMotherChildDigest(keySnap, moodSnap, student, ai) {
   const s = keySnap;
   const m = moodSnap;
   const careLine = ai?.highlight || "今天的日常努力，也值得一句温暖的看见。";
+  const statusLabel = m.checkedIn ? "已打卡" : "未打卡";
   return `<section class="card-block mother-digest workbench-digest">
     <h3>${student?.name || "Daniel"} 今日关键结果</h3>
-    <p class="hint">父母做陪伴判断的第一信息源，情绪与计划供参考。</p>
-    <div class="father-digest__stats stat-grid">
-      <div class="stat"><span>今日总分</span><strong>${s.totalScore != null ? formatScore(s.totalScore) : "—"}</strong></div>
-      <div class="stat"><span>今日完成率</span><strong>${s.completionRate != null ? `${s.completionRate}%` : "—"}</strong></div>
-      <div class="stat"><span>今日错题数</span><strong>${s.mistakeCount}</strong></div>
-      <div class="stat"><span>剩余错题数</span><strong>${s.remainingMistakes}</strong></div>
-      <div class="stat"><span>复训是否清零</span><strong>${s.retrainCleared ? "已清零" : "未清零"}</strong></div>
-      <div class="stat"><span>训练正确率</span><strong>${s.trainingAccuracy != null ? `${s.trainingAccuracy}%` : "—"}</strong></div>
-      <div class="stat"><span>连续打卡天数</span><strong>${s.checkinStreak} 天</strong></div>
-    </div>
-    <div class="mother-digest__stats stat-grid">
+    <div class="mother-digest__stats stat-grid stat-grid--compact">
+      <div class="stat"><span>今日状态</span><strong>${statusLabel}</strong></div>
       <div class="stat"><span>今日心情</span><strong>${m.mood}</strong></div>
+      <div class="stat"><span>今日压力</span><strong>${m.stress}</strong></div>
       <div class="stat"><span>今日精力</span><strong>${m.energy}</strong></div>
-      <div class="stat"><span>今日压力感</span><strong>${m.stress}</strong></div>
-      <div class="stat"><span>明日计划</span><strong class="mother-digest__long">${m.tomorrowPlan}</strong></div>
+      <div class="stat"><span>今日错题</span><strong>${s.mistakeCount}</strong></div>
     </div>
-    <article class="mother-digest__block">
-      <h4>今日特别表现</h4>
-      <p>${String(s.specialPerformanceText || "—").replace(/\n/g, "<br>")}</p>
-    </article>
-    <article class="mother-digest__block">
-      <h4>今日最值得看见的成长行为</h4>
-      <p>${careLine}</p>
-    </article>
+    <p class="workbench-digest__line"><strong>今日特别表现：</strong>${truncateLine(String(s.specialPerformanceText || "—"), 120)}</p>
     <p class="workbench-digest__ai-hint"><strong>今日最值得妈妈看见：</strong>${truncateLine(careLine, 96)}</p>
   </section>`;
 }
 
-function renderMotherScenarios(selected = "", category = "emotion") {
-  const cats = Object.entries(MOTHER_COMPANION_SCENARIOS);
-  const cards = cats.map(([key, c]) =>
-    `<button type="button" class="companion-cat-card ${key === category ? "is-active" : ""}" data-mscene-cat="${key}">
-      <span class="companion-cat-card__icon">${c.icon || "✨"}</span>
-      <strong>${c.label}</strong>
-    </button>`
-  ).join("");
-  const active = MOTHER_COMPANION_SCENARIOS[category] || MOTHER_COMPANION_SCENARIOS.emotion;
-  const chips = active.items.map((item) =>
-    `<button type="button" class="mother-scene-chip ${selected === item.label ? "is-selected" : ""}" data-mscene="${item.label}">${item.label}</button>`
-  ).join("");
-  return `<section class="card-block mother-scenes">
-    <h3>陪伴场景</h3>
-    <p class="hint">先选大类，再选小类，系统会自动生成标题、内容与建议积分。</p>
-    <input type="hidden" id="mother-scenario" value="${selected}" />
-    <input type="hidden" id="mother-scenario-cat" value="${category}" />
-    <div class="companion-cat-grid">${cards}</div>
-    <div class="mother-scene-chips" id="mother-scene-chips">${chips}</div>
-    <div id="mother-scene-preview" class="companion-preview hidden"></div>
+function renderMotherQuickActions() {
+  return `<section class="card-block workbench-quick-actions workbench-quick-actions--mother">
+    <h3>快速陪伴</h3>
+    <div class="quick-action-grid quick-action-grid--3">
+      <button type="button" class="btn btn--sun quick-action-btn" data-mother-action="encourage">温暖鼓励</button>
+      <button type="button" class="btn btn--ghost quick-action-btn" data-mother-action="tomorrow">明日小目标</button>
+      <button type="button" class="btn btn--ghost quick-action-btn" data-mother-action="companion">亲子陪伴</button>
+    </div>
   </section>`;
 }
 
-function renderMotherCompanionForm(tool, draft = {}, scen = {}) {
+function renderMotherWarmEncourageForm(draft = {}, scen = {}) {
   const category = scen.category || draft.category || "emotion";
   const sub = scen.subcategory || draft.scenario || "";
   const catOpts = Object.entries(MOTHER_COMPANION_SCENARIOS).map(([k, c]) =>
@@ -3088,250 +3064,237 @@ function renderMotherCompanionForm(tool, draft = {}, scen = {}) {
   const subOpts = subItems.map((i) =>
     `<option value="${i.label}" ${sub === i.label ? "selected" : ""}>${i.label}</option>`
   ).join("");
-  const toolOpts = Object.entries(MOTHER_TOOL_LABELS).map(([k, label]) =>
-    `<option value="${k}" ${(draft.tool || tool) === k ? "selected" : ""}>${label}</option>`
-  ).join("");
+  const tool = draft.tool || "card";
   const pts = draft.points ?? MOTHER_REWARD_POINTS[tool] ?? 500;
-  const badgeOpts = (draft.tool || tool) === "badge"
-    ? `<label class="field"><span>荣誉徽章类型</span><select name="badgeType" required>
+  return `<form class="form workbench-light-form" id="mother-encourage-f">
+    <h4>温暖鼓励</h4>
+    <label class="field"><span>陪伴场景</span><select name="scenarioCategory" id="mother-form-cat">${catOpts}</select></label>
+    <label class="field"><span>具体行为</span><select name="scenarioSub" id="mother-form-sub" required><option value="">请选择</option>${subOpts}</select></label>
+    <fieldset class="field field--inline">
+      <legend>鼓励形式</legend>
+      <label class="chip-radio"><input type="radio" name="rewardTool" value="card" ${tool === "card" ? "checked" : ""} /><span>鼓励卡</span></label>
+      <label class="chip-radio"><input type="radio" name="rewardTool" value="praise-letter" ${tool === "praise-letter" ? "checked" : ""} /><span>表扬信</span></label>
+      <label class="chip-radio"><input type="radio" name="rewardTool" value="badge" ${tool === "badge" ? "checked" : ""} /><span>荣誉徽章</span></label>
+    </fieldset>
+    <label class="field field--badge"><span>荣誉徽章类型（选徽章时填写）</span><select name="badgeType">
         <option value="">请选择</option>
         ${MOTHER_BADGE_TYPES.map((m) => `<option value="${m}" ${draft.badgeType === m ? "selected" : ""}>${m}</option>`).join("")}
-      </select></label>` : "";
-  const familyOpts = (draft.tool || tool) === "family-reward"
-    ? `<label class="field"><span>亲子奖励类型</span><select name="familyRewardType">
-        ${FAMILY_REWARD_TYPES.map((f) => `<option value="${f}" ${draft.familyRewardType === f ? "selected" : ""}>${f}</option>`).join("")}
-      </select></label>` : "";
-  const tomorrowFields = tool === "tomorrow-goal"
-    ? `<label class="field"><span>明天先完成什么</span><textarea name="tomorrowTask" rows="2">${draft.tomorrowTask || ""}</textarea></label>
-      <label class="field"><span>需要妈妈怎么帮</span><textarea name="motherHelp" rows="2" placeholder="例如：陪你复盘 10 分钟"></textarea></label>
-      <label class="field"><span>明天一句提醒</span><input name="tomorrowReminder" placeholder="例如：记得先完成错题复训" /></label>` : "";
-  const submitLabel = MOTHER_SUBMIT_LABELS[tool] || MOTHER_SUBMIT_LABELS.card;
-  const pointsField = tool === "tomorrow-goal"
-    ? `<label class="field"><span>奖励积分（可选，0 表示不加分）</span><input name="points" type="number" min="0" max="100" value="${pts || 0}" /></label>`
-    : (tool !== "family-reward"
-      ? `<label class="field"><span>奖励积分</span><input name="points" type="number" min="1" max="800" value="${pts}" /></label>`
-      : `<label class="field"><span>奖励积分</span>
-        <select name="points"><option value="300" ${pts === 300 ? "selected" : ""}>300 分</option><option value="500" ${pts === 500 ? "selected" : ""}>500 分</option></select></label>`);
-
-  return `<form class="form mother-companion-form" id="mother-reward-f">
-    <h4>${MOTHER_TOOL_LABELS[tool] || "陪伴奖励"}</h4>
-    <label class="field"><span>陪伴场景大类</span><select name="scenarioCategory" id="mother-form-cat">${catOpts}</select></label>
-    <label class="field"><span>陪伴场景小类</span><select name="scenarioSub" id="mother-form-sub" required><option value="">请选择</option>${subOpts}</select></label>
-    <label class="field"><span>自定义补充说明</span><textarea name="customNote" rows="2" placeholder="可补充今天值得被看见的细节">${draft.customNote || ""}</textarea></label>
-    <label class="field"><span>奖励类型</span><select name="rewardTool" id="mother-form-tool">${toolOpts}</select></label>
-    ${badgeOpts}${familyOpts}${tomorrowFields}
+      </select></label>
     <label class="field"><span>标题</span><input name="title" value="${draft.title || ""}" placeholder="温暖标题" /></label>
-    <label class="field"><span>内容</span><textarea name="content" rows="4">${draft.content || ""}</textarea></label>
-    ${pointsField}
+    <label class="field"><span>内容</span><textarea name="content" rows="3">${draft.content || ""}</textarea></label>
+    <label class="field"><span>积分</span><input name="points" type="number" min="1" max="800" value="${pts}" /></label>
     <label class="toggle"><input type="checkbox" name="addToHonor" checked /><span>进入荣誉室</span></label>
     <label class="toggle"><input type="checkbox" name="notifyChild" checked /><span>通知孩子</span></label>
     <input type="hidden" name="scenario" value="${sub}" />
-    <button class="btn btn--sun btn--block">${submitLabel}</button>
+    <button class="btn btn--sun btn--block">确认发送温暖鼓励</button>
   </form>`;
 }
 
-function renderMotherToolbox(wallet) {
-  const tools = [
-    { id: "card", icon: "💛", name: "发妈妈鼓励卡", pts: MOTHER_REWARD_POINTS.card, desc: "压力大、情绪低时需要温暖" },
-    { id: "praise-letter", icon: "💝", name: "写温暖表扬信", pts: MOTHER_REWARD_POINTS["praise-letter"], desc: "特别表现与高光时刻" },
-    { id: "badge", icon: "🎖️", name: "发荣誉徽章", pts: MOTHER_REWARD_POINTS.badge, desc: "温暖坚持、情绪稳定等" },
-    { id: "family-reward", icon: "🌸", name: "发亲子奖励", pts: MOTHER_REWARD_POINTS["family-reward"], desc: "陪伴活动与亲子时光" },
-    { id: "tomorrow-goal", icon: "🎯", name: "给明日小目标", pts: "0~100", desc: "明天先做什么、妈妈怎么帮" },
-  ];
-  return `<section class="card-block mother-toolbox">
-    <h3>妈妈陪伴工具箱</h3>
-    <div class="mother-tool-grid father-tool-grid">${tools.map((t) => {
-      const afford = t.id === "tomorrow-goal" || canMotherAfford(t.id, wallet);
-      return `<button type="button" class="father-tool-btn mother-tool-btn ${afford ? "" : "is-disabled"}" data-mother-tool="${t.id}" ${afford ? "" : "disabled"}>
-        <span class="father-tool-btn__icon">${t.icon}</span>
-        <strong>${t.name}</strong>
-        <span class="hint">${t.desc}</span>
-        <span class="father-tool-btn__pts">${t.id === "tomorrow-goal" ? "默认 0~100 分" : `默认 ${t.pts} 分`}</span>
-      </button>`;
-    }).join("")}</div>
-  </section>`;
+function renderMotherTomorrowForm(draft = {}, ai = {}) {
+  const pts = draft.points ?? 0;
+  return `<form class="form workbench-light-form" id="mother-tomorrow-f">
+    <h4>明日小目标</h4>
+    <label class="field"><span>明日目标</span><textarea name="tomorrowTask" rows="2" required>${draft.tomorrowTask || ai.tomorrowGoal || ""}</textarea></label>
+    <label class="field"><span>妈妈提醒方式</span><input name="tomorrowReminder" placeholder="例如：明天先完成错题复训" value="${draft.tomorrowReminder || ""}" /></label>
+    <label class="field"><span>是否加积分（0 表示不加分）</span><input name="points" type="number" min="0" max="100" value="${pts}" /></label>
+    <label class="toggle"><input type="checkbox" name="notifyChild" checked /><span>通知孩子</span></label>
+    <button class="btn btn--ghost btn--block">发送明日小目标</button>
+  </form>`;
 }
 
-function bindMotherWorkbench(root, ctx) {
-  const { member, student, user, todayRec, ai, wallet } = ctx;
-  let selectedScenario = ai.scenario || "";
-  let selectedCategory = findScenarioCategoryByLabel(selectedScenario) || "emotion";
-  let companionDraft = selectedScenario
-    ? buildCompanionRewardDraft(selectedCategory, selectedScenario)
-    : null;
-  let activeTool = companionDraft?.tool || "card";
+function renderMotherFamilyCompanionForm(draft = {}) {
+  const pts = draft.points ?? MOTHER_REWARD_POINTS["family-reward"] ?? 300;
+  const actOpts = MOTHER_COMPANION_ACTIVITIES.map((a) =>
+    `<option value="${a}" ${draft.familyRewardType === a ? "selected" : ""}>${a}</option>`
+  ).join("");
+  return `<form class="form workbench-light-form" id="mother-companion-f">
+    <h4>亲子陪伴</h4>
+    <label class="field"><span>陪伴方式</span><select name="familyRewardType" required>${actOpts}</select></label>
+    <label class="field"><span>陪伴时间</span><input name="companionTime" placeholder="例如：今晚 19:30" value="${draft.companionTime || ""}" /></label>
+    <label class="field"><span>妈妈想说的话</span><textarea name="content" rows="3" required placeholder="写下你想陪孩子做的事">${draft.content || ""}</textarea></label>
+    <label class="field"><span>奖励积分</span><input name="points" type="number" min="1" max="800" value="${pts}" /></label>
+    <label class="toggle"><input type="checkbox" name="notifyChild" checked /><span>通知孩子</span></label>
+    <button class="btn btn--sun btn--block">发起亲子陪伴奖励</button>
+  </form>`;
+}
 
-  root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
-  bindParentLedgerToggle(root, user?.familyId, user?.role);
-  bindSpecialPerformanceWorkbench(root, todayRec, "mother", { member, student, user });
-
-  const scenarioInput = $("#mother-scenario", root);
-  const categoryInput = $("#mother-scenario-cat", root);
-  const chipsHost = $("#mother-scene-chips", root);
-  const previewBox = $("#mother-scene-preview", root);
-  const formBox = $("#mother-tool-form", root);
-
-  const updatePreview = (draft) => {
-    if (!previewBox || !draft) {
-      previewBox?.classList.add("hidden");
-      return;
-    }
-    previewBox.classList.remove("hidden");
-    previewBox.innerHTML = `<p class="hint"><strong>推荐：</strong>${MOTHER_TOOL_LABELS[draft.tool] || draft.tool} · ${draft.points} 分</p>
-      <p><strong>${draft.title}</strong></p>
-      <p class="hint">${draft.content.slice(0, 120)}${draft.content.length > 120 ? "…" : ""}</p>`;
-  };
-
-  const bindCompanionForm = (tool, draft) => {
-    const form = $("#mother-reward-f", formBox);
-    if (!form) return;
-    const refreshFromSelectors = () => {
-      const cat = $("#mother-form-cat", form)?.value || selectedCategory;
-      const sub = $("#mother-form-sub", form)?.value || "";
-      const note = form.querySelector('[name="customNote"]')?.value || "";
-      const t = $("#mother-form-tool", form)?.value || tool;
-      if (!sub) return;
-      const next = buildCompanionRewardDraft(cat, sub, note, t);
-      form.querySelector('[name="title"]').value = next.title;
-      form.querySelector('[name="content"]').value = next.content;
-      const ptsEl = form.querySelector('[name="points"]');
-      if (ptsEl && ptsEl.tagName === "INPUT") ptsEl.value = next.points;
-      form.querySelector('[name="scenario"]').value = next.scenario;
-    };
-    $("#mother-form-cat", form)?.addEventListener("change", () => {
-      const cat = $("#mother-form-cat", form).value;
-      const subSel = $("#mother-form-sub", form);
-      const items = MOTHER_COMPANION_SCENARIOS[cat]?.items || [];
-      subSel.innerHTML = `<option value="">请选择</option>${items.map((i) => `<option value="${i.label}">${i.label}</option>`).join("")}`;
-    });
-    $("#mother-form-sub", form)?.addEventListener("change", refreshFromSelectors);
-    $("#mother-form-tool", form)?.addEventListener("change", refreshFromSelectors);
-    form.querySelector('[name="customNote"]')?.addEventListener("input", refreshFromSelectors);
-    form.onsubmit = (e) => {
-      e.preventDefault();
-      submitReward($("#mother-form-tool", form)?.value || tool, new FormData(form));
-    };
-  };
-
-  const openCompanionForm = (tool, draft = companionDraft) => {
-    activeTool = tool;
-    const scen = { category: selectedCategory, subcategory: selectedScenario };
-    showWorkbenchFormPanel(formBox);
-    formBox.innerHTML = renderMotherCompanionForm(tool, draft || {}, scen);
-    bindCompanionForm(tool, draft);
-    formBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  };
-
-  const applyScenario = (cat, sub) => {
-    selectedCategory = cat;
-    selectedScenario = sub;
-    if (scenarioInput) scenarioInput.value = sub;
-    if (categoryInput) categoryInput.value = cat;
-    companionDraft = buildCompanionRewardDraft(cat, sub);
-    updatePreview(companionDraft);
-    if (!formBox?.classList.contains("hidden")) {
-      openCompanionForm(activeTool, companionDraft);
-    }
-  };
-
-  const paintChips = (cat) => {
-    const c = MOTHER_COMPANION_SCENARIOS[cat];
-    if (!chipsHost || !c) return;
-    chipsHost.innerHTML = c.items.map((item) =>
-      `<button type="button" class="mother-scene-chip ${selectedScenario === item.label ? "is-selected" : ""}" data-mscene="${item.label}">${item.label}</button>`
-    ).join("");
-    chipsHost.querySelectorAll("[data-mscene]").forEach((b) => b.addEventListener("click", () => {
-      applyScenario(cat, b.dataset.mscene);
-      paintChips(cat);
-    }));
-  };
-
-  root.querySelectorAll("[data-mscene-cat]").forEach((b) => b.addEventListener("click", () => {
-    selectedCategory = b.dataset.msceneCat;
-    selectedScenario = "";
-    if (categoryInput) categoryInput.value = selectedCategory;
-    if (scenarioInput) scenarioInput.value = "";
-    companionDraft = null;
-    updatePreview(null);
-    root.querySelectorAll("[data-mscene-cat]").forEach((t) => t.classList.toggle("is-active", t.dataset.msceneCat === selectedCategory));
-    paintChips(selectedCategory);
-  }));
-  paintChips(selectedCategory);
-  if (companionDraft) updatePreview(companionDraft);
+function bindMotherEncourageForm(root, formBox, ctx) {
+  const { member, student, user, todayRec, ai } = ctx;
+  const selectedCategory = findScenarioCategoryByLabel(ai.scenario || "") || "emotion";
+  const selectedScenario = ai.scenario || "";
+  const form = $("#mother-encourage-f", formBox);
+  if (!form) return;
 
   const notifyChild = (payload) => notifyStudentFromParent("mother", member, student, payload);
 
-  const submitReward = (tool, fd) => {
-    const cat = fd.get("scenarioCategory") || categoryInput?.value || selectedCategory;
+  const refreshFromSelectors = () => {
+    const cat = $("#mother-form-cat", form)?.value || selectedCategory;
+    const sub = $("#mother-form-sub", form)?.value || "";
+    const t = form.querySelector('[name="rewardTool"]:checked')?.value || "card";
+    if (!sub) return;
+    const next = buildCompanionRewardDraft(cat, sub, "", t);
+    const titleEl = form.querySelector('[name="title"]');
+    const contentEl = form.querySelector('[name="content"]');
+    const ptsEl = form.querySelector('[name="points"]');
+    if (titleEl && !titleEl.value) titleEl.value = next.title;
+    if (contentEl && !contentEl.value) contentEl.value = next.content;
+    if (ptsEl) ptsEl.value = next.points;
+    form.querySelector('[name="scenario"]').value = next.scenario;
+  };
+
+  $("#mother-form-cat", form)?.addEventListener("change", () => {
+    const cat = $("#mother-form-cat", form).value;
+    const subSel = $("#mother-form-sub", form);
+    const items = MOTHER_COMPANION_SCENARIOS[cat]?.items || [];
+    subSel.innerHTML = `<option value="">请选择</option>${items.map((i) => `<option value="${i.label}">${i.label}</option>`).join("")}`;
+  });
+  $("#mother-form-sub", form)?.addEventListener("change", refreshFromSelectors);
+  form.querySelectorAll('[name="rewardTool"]').forEach((r) => r.addEventListener("change", () => {
+    const t = form.querySelector('[name="rewardTool"]:checked')?.value || "card";
+    const ptsEl = form.querySelector('[name="points"]');
+    if (ptsEl) ptsEl.value = MOTHER_REWARD_POINTS[t] ?? 500;
+    refreshFromSelectors();
+  }));
+
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const tool = fd.get("rewardTool") || "card";
+    const cat = fd.get("scenarioCategory") || selectedCategory;
     const sub = fd.get("scenarioSub") || fd.get("scenario") || selectedScenario || "";
-    const customNote = fd.get("customNote") || "";
-    const resolvedTool = fd.get("rewardTool") || tool;
-    const draft = sub ? buildCompanionRewardDraft(cat, sub, customNote, resolvedTool) : null;
+    const draft = sub ? buildCompanionRewardDraft(cat, sub, "", tool) : null;
     const r = submitMotherReward({
-      tool: resolvedTool,
+      tool,
       scenario: sub || draft?.scenario || "",
       scenarioCategory: cat,
       badgeType: fd.get("badgeType") || draft?.badgeType || "",
-      familyRewardType: fd.get("familyRewardType") || draft?.familyRewardType || "",
       title: fd.get("title") || draft?.title || "",
       content: fd.get("content") || draft?.content || "",
       points: fd.get("points"),
-      tomorrowTask: fd.get("tomorrowTask") || "",
-      motherHelp: fd.get("motherHelp") || "",
-      tomorrowReminder: fd.get("tomorrowReminder") || "",
       relatedRecordId: todayRec?.recordId,
-      addToHonor: fd.get("addToHonor") === "on",
+      addToHonor: fd.get("addToHonor") !== null,
       member,
       student,
       familyId: user?.familyId,
     });
     if (!r.ok) return showToast(r.error, "error");
-    if (fd.get("notifyChild") === "on") {
-      if (r.points > 0) {
-        notifyChild({
-          title: r.displayTitle,
-          content: fd.get("content") || sub || ai.childMessage,
-          style: "温暖陪伴",
-          rewardType: resolvedTool === "family-reward" ? "亲子活动" : (resolvedTool === "badge" ? "荣誉徽章" : "精神鼓励"),
-        });
-      } else {
-        notifyChild({ title: r.displayTitle || "明日小目标", content: fd.get("tomorrowReminder") || "", style: "温暖陪伴", rewardType: "明日小目标" });
-      }
+    if (fd.get("notifyChild") !== null) {
+      notifyChild({
+        title: r.displayTitle,
+        content: fd.get("content") || sub || ai.childMessage,
+        style: "温暖陪伴",
+        rewardType: tool === "badge" ? "荣誉徽章" : "精神鼓励",
+      });
     }
-    showToast(r.message || "陪伴记录已保存");
+    showToast(r.message || "温暖鼓励已发送");
     hideWorkbenchFormPanel(formBox);
     render();
   };
+}
 
-  root.querySelectorAll("[data-mother-tool]").forEach((btn) => btn.addEventListener("click", () => {
-    const tool = btn.dataset.motherTool;
-    if (tool !== "tomorrow-goal" && !canMotherAfford(tool, wallet)) {
-      return showToast("Sara 钱包积分不足", "error");
+function bindMotherWorkbench(root, ctx) {
+  const { member, student, user, todayRec, ai, wallet } = ctx;
+  const selectedCategory = findScenarioCategoryByLabel(ai.scenario || "") || "emotion";
+  const selectedScenario = ai.scenario || "";
+  const spDraft = buildCompanionFromSpecialPerformance(todayRec?.specialPerformance);
+  const encourageDraft = spDraft || (selectedScenario
+    ? buildCompanionRewardDraft(selectedCategory, selectedScenario)
+    : { tool: "card", points: 500 });
+  const formBox = $("#mother-tool-form", root);
+
+  root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
+  bindParentLedgerToggle(root, user?.familyId, user?.role);
+
+  const notifyChild = (payload) => notifyStudentFromParent("mother", member, student, payload);
+
+  const openForm = (html, binder) => {
+    showWorkbenchFormPanel(formBox);
+    formBox.innerHTML = html;
+    binder?.();
+    formBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
+  root.querySelectorAll("[data-mother-action]").forEach((btn) => btn.addEventListener("click", () => {
+    const action = btn.dataset.motherAction;
+    if (action === "encourage") {
+      openForm(
+        renderMotherWarmEncourageForm(encourageDraft, { category: selectedCategory, subcategory: selectedScenario }),
+        () => bindMotherEncourageForm(root, formBox, ctx),
+      );
+      return;
     }
-    if (!selectedScenario && tool !== "tomorrow-goal") {
-      showToast("请先选择陪伴场景小类", "info");
+    if (action === "tomorrow") {
+      openForm(renderMotherTomorrowForm({ tomorrowTask: ai.tomorrowGoal || "" }, ai), () => {
+        const form = $("#mother-tomorrow-f", formBox);
+        form?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const fd = new FormData(form);
+          const r = submitMotherReward({
+            tool: "tomorrow-goal",
+            scenario: "明日小目标",
+            scenarioCategory: "plan",
+            title: "明日小目标",
+            content: fd.get("tomorrowTask") || "",
+            points: fd.get("points"),
+            tomorrowTask: fd.get("tomorrowTask") || "",
+            tomorrowReminder: fd.get("tomorrowReminder") || "",
+            relatedRecordId: todayRec?.recordId,
+            addToHonor: true,
+            member,
+            student,
+            familyId: user?.familyId,
+          });
+          if (!r.ok) return showToast(r.error, "error");
+          if (fd.get("notifyChild") === "on") {
+            notifyChild({
+              title: r.displayTitle || "明日小目标",
+              content: fd.get("tomorrowReminder") || fd.get("tomorrowTask") || "",
+              style: "温暖陪伴",
+              rewardType: "明日小目标",
+            });
+          }
+          showToast(r.message || "明日小目标已发送");
+          hideWorkbenchFormPanel(formBox);
+          render();
+        });
+      });
+      return;
     }
-    const draft = selectedScenario
-      ? buildCompanionRewardDraft(selectedCategory, selectedScenario, "", tool)
-      : (tool === "tomorrow-goal" ? { tomorrowTask: ai.tomorrowGoal || "", tool: "tomorrow-goal", points: 0 } : {});
-    openCompanionForm(tool, draft);
+    if (action === "companion") {
+      if (!canMotherAfford("family-reward", wallet)) return showToast("Sara 钱包积分不足", "error");
+      openForm(renderMotherFamilyCompanionForm(), () => {
+        const form = $("#mother-companion-f", formBox);
+        form?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const fd = new FormData(form);
+          const activity = fd.get("familyRewardType") || "";
+          const time = fd.get("companionTime") || "";
+          const body = [activity && `陪伴方式：${activity}`, time && `陪伴时间：${time}`, fd.get("content") || ""].filter(Boolean).join("\n");
+          const r = submitMotherReward({
+            tool: "family-reward",
+            scenario: activity,
+            scenarioCategory: "family",
+            familyRewardType: activity,
+            title: `亲子陪伴 · ${activity}`,
+            content: body,
+            points: fd.get("points"),
+            relatedRecordId: todayRec?.recordId,
+            addToHonor: true,
+            member,
+            student,
+            familyId: user?.familyId,
+          });
+          if (!r.ok) return showToast(r.error, "error");
+          if (fd.get("notifyChild") === "on") {
+            notifyChild({ title: r.displayTitle, content: body, style: "温暖陪伴", rewardType: "亲子活动" });
+          }
+          showToast(r.message || "亲子陪伴奖励已发起");
+          hideWorkbenchFormPanel(formBox);
+          render();
+        });
+      });
+    }
   }));
-
-  $("[data-mother-sp-fill]", root)?.addEventListener("click", () => {
-    const draft = buildCompanionFromSpecialPerformance(todayRec?.specialPerformance);
-    if (!draft) return showToast("暂无特别表现可带入", "error");
-    selectedCategory = draft.category;
-    selectedScenario = draft.scenario;
-    companionDraft = draft;
-    if (scenarioInput) scenarioInput.value = draft.scenario;
-    if (categoryInput) categoryInput.value = draft.category;
-    root.querySelectorAll("[data-mscene-cat]").forEach((t) => t.classList.toggle("is-active", t.dataset.msceneCat === draft.category));
-    paintChips(draft.category);
-    updatePreview(draft);
-    openCompanionForm(draft.tool, draft);
-    showToast("已根据孩子特别表现预填陪伴奖励");
-  });
-
 }
 
 function renderMotherWorkbench(root, ctx) {
@@ -3339,17 +3302,18 @@ function renderMotherWorkbench(root, ctx) {
   const keySnap = buildFatherChildSnapshot(user.familyId, student?.memberId);
   const moodSnap = buildMotherChildSnapshot(user.familyId, student?.memberId);
   const ai = buildMotherAiSuggestion(moodSnap);
-  const sceneCat = findScenarioCategoryByLabel(ai.scenario || "") || "emotion";
+  const walletViewer = getCoachWorkbenchWalletViewerRole(user, "mother", {
+    isDemoAccount: isDemoAccount(user),
+    isDemoFamily: isDemoFamily(user?.familyId),
+  });
 
   root.innerHTML = `<div class="page page--workbench page--mother">
     ${renderMotherFirstScreen(member, wb)}
     ${renderMotherChildDigest(keySnap, moodSnap, student, ai)}
     ${renderMotherWalletCard(user.familyId, wallet)}
-    ${renderSpecialPerformanceWorkbenchCard(todayRec, "mother")}
-    ${renderMotherScenarios(ai.scenario || "", sceneCat)}
-    ${renderMotherToolbox(wallet)}
+    ${renderMotherQuickActions()}
     ${renderWorkbenchFormSlot("mother")}
-    ${renderWorkbenchLedger(wallet)}
+    ${renderWorkbenchLedger(wallet, user.familyId, walletViewer)}
   </div>`;
 
   bindMotherWorkbench(root, { member, student, user, todayRec, ai, wallet });

@@ -107,7 +107,7 @@ const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const chartsText = fs.readFileSync(path.join(root, "charts.js"), "utf8");
-ok("v15. SW含memberRoles与v16e7", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e7"));
+ok("v15. SW含memberRoles与v16e8", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e8"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -116,16 +116,16 @@ ok("v16b. 爸爸表扬信默认500", fatherWorkbench.FATHER_REWARD_POINTS["prais
 ok("v16b. 爸爸奖章默认500", fatherWorkbench.FATHER_REWARD_POINTS.medal === 500);
 ok("v16b. 三类奖励场景", Object.keys(fatherWorkbench.FATHER_REWARD_SCENARIOS).length === 3);
 ok("v16b. SW含fatherWorkbench", swText.includes("fatherWorkbench.js") && swText.includes("motherWorkbench.js"));
-ok("v16b. app含renderFatherWorkbench", appText.includes("renderFatherWorkbench") && appText.includes("爸爸奖励工具箱"));
+ok("v16b. app含renderFatherWorkbench", appText.includes("renderFatherWorkbench") && appText.includes("快速回应"));
 ok("v16c. 妈妈鼓励卡默认500", motherWorkbench.MOTHER_REWARD_POINTS.card === 500);
 ok("v16c. 七类陪伴场景", Object.keys(motherWorkbench.MOTHER_COMPANION_SCENARIOS).length === 7);
-ok("v16c. app含renderMotherWorkbench", appText.includes("renderMotherWorkbench") && appText.includes("妈妈陪伴工具箱"));
+ok("v16c. app含renderMotherWorkbench", appText.includes("renderMotherWorkbench") && appText.includes("快速陪伴"));
 ok("v16c. 优培总览无钱包hint", !appText.includes("${renderCoachWalletHint()}"));
 ok("v16c. 荣誉室分栏", appText.includes("我的贺卡") && appText.includes("妈妈鼓励记录"));
 ok("v16d. 首屏压缩函数", appText.includes("renderFatherFirstScreen") && appText.includes("renderMotherFirstScreen") && appText.includes("renderHonorHero"));
 ok("v16d. planet-card样式", cssText.includes(".planet-card") && cssText.includes(".quick-action-btn"));
-ok("v16d. Ryan工具箱按钮", appText.includes("data-father-tool=") && appText.includes("发爸爸贺卡"));
-ok("v16d. Sara工具箱按钮", appText.includes("data-mother-tool=") && appText.includes("发妈妈鼓励卡"));
+ok("v16e8. Ryan三个主动作", appText.includes("data-father-action=\"reward\"") && appText.includes("data-father-action=\"method\"") && appText.includes("data-father-action=\"pact\""));
+ok("v16e8. Sara三个主动作", appText.includes("data-mother-action=\"encourage\"") && appText.includes("data-mother-action=\"tomorrow\"") && appText.includes("data-mother-action=\"companion\""));
 ok("v16d2. demoMode模块", appText.includes("demoMode.js") && appText.includes("isDemoAccount"));
 ok("v16d2. 演示工具卡片", appText.includes("演示工具") && appText.includes("data-demo-reset"));
 ok("v16d2. 重置确认文案", appText.includes("确认重置演示数据？") && appText.includes("DEMO_RESET_TOAST"));
@@ -513,15 +513,21 @@ ok("v16d2. 特别表现样例", rrec?.specialPerformance?.customDescription?.inc
 ok("v16d3. 首页产品定位", appText.includes("PAGE_GUIDES.home") && version.PAGE_GUIDES.home.includes("家庭学习成长系统"));
 ok("v16d3. 复训页引导", version.MODULE_SLOGANS.train.includes("一题一屏复训") && version.MODULE_SLOGANS.train.includes("错题清零"));
 ok("v16d3. 打卡特别表现提示", appText.includes("PAGE_GUIDES.checkinSpecial") && version.PAGE_GUIDES.checkinSpecial.includes("温暖行动"));
-ok("v16d3. Ryan引导", appText.includes("PAGE_GUIDES.father") && appText.includes("PAGE_GUIDES.fatherReward"));
-ok("v16d3. Sara引导", appText.includes("PAGE_GUIDES.mother") && appText.includes("PAGE_GUIDES.motherCompanion"));
+ok("v16d3. Ryan引导", version.PAGE_GUIDES.father.includes("爸爸") && appText.includes("renderFatherFirstScreen"));
+ok("v16d3. Sara引导", version.PAGE_GUIDES.mother.includes("妈妈") && appText.includes("renderMotherFirstScreen"));
 ok("v16d3. 荣誉室引导", appText.includes("PAGE_GUIDES.honor") && version.PAGE_GUIDES.honor("Daniel").includes("成长资产中心"));
 ok("v16d3. K线免责声明", growthMarket.GROWTH_DISCLAIMER.includes("不是真实投资") && appText.includes("renderKlineDisclaimer"));
 const manifestText = fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8");
-ok("v16e7. App版本v16-E7", version.APP_VERSION === "v16-E7");
-ok("v16e7. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e7" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e7"'));
+ok("v16e8. App版本v16-E8", version.APP_VERSION === "v16-E8");
+ok("v16e8. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e8" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e8"'));
 ok("v16e. SW含aiReferenceAnswer", swText.includes("aiReferenceAnswer.js"));
-ok("v16e7. manifest启动参数", manifestText.includes('"start_url": "./?v=16e7"'));
+ok("v16e8. manifest启动参数", manifestText.includes('"start_url": "./?v=16e8"'));
+ok("v16e8. 工作台减法", appText.includes("renderFatherQuickActions") && appText.includes("renderMotherQuickActions"));
+ok("v16e8. 成长奖励合并", appText.includes("renderFatherGrowthRewardForm") && appText.includes("确认发放成长奖励"));
+ok("v16e8. 温暖鼓励合并", appText.includes("renderMotherWarmEncourageForm") && appText.includes("确认发送温暖鼓励"));
+ok("v16e8. 扣分折叠入口", appText.includes("renderFatherRemindFold") && appText.includes("需要提醒或扣分"));
+ok("v16e8. 积分记录预览", appText.includes("workbench-ledger-preview") && appText.includes("查看全部"));
+ok("v16e8. 表单默认收起", appText.includes("workbench-form-slot--empty"));
 ok("v16e7. K线提示卡结构", chartsText.includes("market-tip-wrap") && chartsText.includes("market-kline-tip") && chartsText.includes("highY"));
 ok("v16e7. 提示卡rise动画", cssText.includes("@keyframes marketTipRise") && cssText.includes("market-tip-rise"));
 ok("v16e7. 提示卡wiggle动画", cssText.includes("@keyframes marketTipWiggle") && cssText.includes("market-tip-wiggle"));
@@ -568,15 +574,15 @@ ok("v16e5. AI轻提示", appText.includes("今日最值得爸爸看见") && appT
 ok("v16e5. 发放表单位置", appText.includes("renderWorkbenchFormSlot") && appText.includes("renderWorkbenchLedger"));
 const fatherWb = (appText.match(/function renderFatherWorkbench[\s\S]*?^}/m) || [""])[0];
 ok("v16e5. Ryan工作台卡片顺序", fatherWb.includes("renderFatherChildDigest(snapshot, student, ai)")
-  && fatherWb.indexOf("renderFatherChildDigest") < fatherWb.indexOf("renderFatherToolbox")
-  && fatherWb.indexOf("renderFatherToolbox") < fatherWb.indexOf("renderWorkbenchFormSlot"));
+  && fatherWb.indexOf("renderFatherChildDigest") < fatherWb.indexOf("renderFatherQuickActions")
+  && fatherWb.indexOf("renderFatherQuickActions") < fatherWb.indexOf("renderWorkbenchFormSlot"));
 const motherWb = (appText.match(/function renderMotherWorkbench[\s\S]*?^}/m) || [""])[0];
 ok("v16e5. Sara工作台卡片顺序", motherWb.includes("renderMotherChildDigest(keySnap, moodSnap, student, ai)")
-  && motherWb.indexOf("renderMotherChildDigest") < motherWb.indexOf("renderMotherToolbox")
-  && motherWb.indexOf("renderMotherToolbox") < motherWb.indexOf("renderWorkbenchFormSlot"));
+  && motherWb.indexOf("renderMotherChildDigest") < motherWb.indexOf("renderMotherQuickActions")
+  && motherWb.indexOf("renderMotherQuickActions") < motherWb.indexOf("renderWorkbenchFormSlot"));
 ok("v16e4. 爸爸场景库模块", swText.includes("fatherRewardScenarios.js"));
-ok("v16e4. 爸爸场景自动生成", appText.includes("buildFatherRewardDraft") && appText.includes("renderFatherRewardForm"));
-ok("v16e4. 爸爸表单字段", appText.includes("奖励场景大类") && appText.includes("奖励场景小类") && appText.includes("FATHER_SUBMIT_LABELS"));
+ok("v16e4. 爸爸场景自动生成", appText.includes("buildFatherRewardDraft") && appText.includes("renderFatherGrowthRewardForm"));
+ok("v16e4. 爸爸表单字段", appText.includes("奖励场景") && appText.includes("奖励形式") && appText.includes("确认发放成长奖励"));
 ok("v16e4. 无空白场景输入", !appText.includes('placeholder="从上方选择或填写"'));
 const fatherDraft = fatherWorkbench.buildFatherRewardDraft("learning", "为一道错题坚持很久");
 ok("v16e4. 学习场景表扬信", fatherDraft.title === "这一次坚持很珍贵" && fatherDraft.tool === "praise-letter" && fatherDraft.points === 500);
@@ -584,12 +590,12 @@ const motherDraft = fatherWorkbench.buildFatherRewardDraft("motherCare", "主动
 ok("v16e4. 妈妈守护奖章", motherDraft.title === "妈妈守护星" && motherDraft.tool === "medal" && motherDraft.medalType === "妈妈守护星");
 ok("v16e4. 工具箱默认贺卡", fatherWorkbench.getFatherToolDefaults("card").content.includes("坚持"));
 ok("v16e3. 陪伴场景库", swText.includes("motherCompanionScenarios.js"));
-ok("v16e3. 场景自动生成", appText.includes("buildCompanionRewardDraft") && appText.includes("renderMotherCompanionForm"));
+ok("v16e3. 场景自动生成", appText.includes("buildCompanionRewardDraft") && appText.includes("renderMotherWarmEncourageForm"));
 ok("v16e3. 特别表现带入", appText.includes("data-mother-sp-fill") && appText.includes("buildCompanionFromSpecialPerformance"));
 const companionDraft = motherWorkbench.buildCompanionRewardDraft("emotion", "压力大但坚持完成");
 ok("v16e3. 情绪场景草稿", companionDraft.title === "妈妈看见你的坚持" && companionDraft.points === 500 && companionDraft.tool === "card");
 ok("v16e3. 学习场景表扬信", motherWorkbench.buildCompanionRewardDraft("learning", "为一道错题坚持很久").tool === "praise-letter");
-ok("v16e3. 陪伴表单字段", appText.includes("陪伴场景大类") && appText.includes("自定义补充说明") && appText.includes("MOTHER_SUBMIT_LABELS"));
+ok("v16e3. 陪伴表单字段", appText.includes("陪伴场景") && appText.includes("鼓励形式") && appText.includes("buildCompanionRewardDraft"));
 ok("v16e4. 特别表现卡片横排", cssText.includes("writing-mode: horizontal-tb") && cssText.includes("justify-content: flex-start"));
 ok("v16e4. 特别表现三列布局", cssText.includes("grid-template-columns: repeat(3, minmax(0, 1fr))"));
 ok("v16e2. 训练页grid分层", cssText.includes(".train-focus.train-play") && cssText.includes("grid-template-rows"));
