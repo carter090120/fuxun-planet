@@ -9,6 +9,8 @@ import {
   getParentWalletByRole,
   getStudentWalletFromState,
   assertParentWalletAccess,
+  canViewParentWalletBalance,
+  canViewStudentWalletBalance,
 } from "./growthAssets.js";
 import { getCurrentUser, getSession } from "./auth.js";
 import { upsertMarketKline } from "./marketKline.js";
@@ -119,6 +121,33 @@ export function getWalletSummary(familyId) {
     } : null,
     recentTransactions: getPointTransactions(fid, { limit: 10 }),
   };
+}
+
+export function getParentWalletForViewer(familyId, parentRole, userRole) {
+  if (!canViewParentWalletBalance(userRole, parentRole)) return null;
+  const state = loadState();
+  ensureGrowthAssets(state);
+  return getParentWalletByRole(state, familyId, parentRole);
+}
+
+export function getStudentWalletForViewer(familyId, studentId, userRole) {
+  if (!canViewStudentWalletBalance(userRole)) return null;
+  const state = loadState();
+  ensureGrowthAssets(state);
+  return getStudentWalletFromState(state, familyId, studentId);
+}
+
+export function getPointTransactionsForViewer(familyId, userRole, opts = {}) {
+  const fid = familyId || getSession()?.familyId;
+  let list = getPointTransactions(fid, opts);
+  if (userRole === "father") {
+    list = list.filter((t) => t.fromRole === "father");
+  } else if (userRole === "mother") {
+    list = list.filter((t) => t.fromRole === "mother");
+  } else if (userRole === "student") {
+    list = list.filter((t) => t.fromRole === "father" || t.fromRole === "mother");
+  }
+  return list;
 }
 
 export function rewardStudent({

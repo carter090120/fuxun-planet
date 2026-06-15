@@ -261,8 +261,17 @@ export function canUseParentWallet(userRole, walletParentRole) {
   return userRole === walletParentRole;
 }
 
+export function canViewParentWalletBalance(userRole, parentRole) {
+  return userRole === parentRole;
+}
+
+export function canViewStudentWalletBalance(userRole) {
+  return userRole === "student";
+}
+
+/** @deprecated use canViewStudentWalletBalance */
 export function canViewStudentWallet(userRole) {
-  return userRole === "student" || userRole === "father" || userRole === "mother" || userRole === "admin";
+  return canViewStudentWalletBalance(userRole);
 }
 
 export function canStudentSelfCredit(userRole) {

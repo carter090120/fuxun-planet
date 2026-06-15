@@ -33,7 +33,11 @@ import {
 } from "./notifications.js";
 import { buildParentSummary, trainingSummaryText } from "./parentSummary.js";
 import { drawBarChart, drawRing, drawGrowthKline, drawInvestmentKline } from "./charts.js";
-import { getGrowthMarket, formatChange, GROWTH_DISCLAIMER } from "./growthMarket.js";
+import { getGrowthMarket, formatChange, GROWTH_DISCLAIMER, getLevelName } from "./growthMarket.js";
+import {
+  getParentWalletForViewer, getStudentWalletForViewer, getPointTransactionsForViewer,
+  getWalletSummary,
+} from "./pointLedger.js";
 import {
   enterTrainingFocusMode, exitTrainingFocusMode, showTrainHint, updateLandscapeHint,
   requestFocusFullscreen, openParseDrawer, closeParseDrawer,
@@ -1436,22 +1440,95 @@ function renderGrowthDashboard(student, gm) {
   </section>`;
 }
 
-function renderCoachWallets(gm) {
-  if (!gm?.wallets) return "";
-  return `<section class="card-block wallet-section">
-    <h3>父母积分钱包</h3>
-    <div class="wallet-grid">
-      <article class="wallet-card wallet-card--father">
-        <span class="wallet-card__icon">👨</span>
-        <div><strong>爸爸钱包</strong><p class="wallet-card__amt">${gm.wallets.father} 积分</p></div>
-      </article>
-      <article class="wallet-card wallet-card--mother">
-        <span class="wallet-card__icon">👩</span>
-        <div><strong>妈妈钱包</strong><p class="wallet-card__amt">${gm.wallets.mother} 积分</p></div>
-      </article>
+function renderCoachWalletHint() {
+  return `<p class="hint card-block coach-wallet-hint">爸爸妈妈可在各自工作台使用优培积分给孩子奖励；钱包余额仅在工作台与孩子荣誉室中可见。</p>`;
+}
+
+const LEDGER_TYPE_LABELS = { reward: "奖励", deduct: "扣分提醒" };
+const LEDGER_FROM_LABELS = { father: "爸爸", mother: "妈妈" };
+
+function renderPointLedgerHTML(transactions, emptyMsg = "暂无积分流水记录。") {
+  if (!transactions?.length) return EmptyCard(emptyMsg, "📒");
+  return `<div class="ledger-list">${transactions.map((t) =>
+    `<article class="ledger-item ledger-item--${t.type}">
+      <div class="ledger-item__head">
+        <strong>${LEDGER_FROM_LABELS[t.fromRole] || ""} · ${LEDGER_TYPE_LABELS[t.type] || t.type} ${t.points} 分</strong>
+        <span class="hint">${formatDateTime(new Date(t.createdAt))}</span>
+      </div>
+      ${t.reason ? `<p>${t.reason}</p>` : ""}
+      ${t.advice ? `<p class="hint">建议：${t.advice}</p>` : ""}
+    </article>`
+  ).join("")}</div>`;
+}
+
+function renderParentWalletHeader(member, role, wallet) {
+  if (!wallet) return "";
+  const sysRoles = getMemberSystemRoles(member).join(" / ");
+  return `<section class="card-block wallet-workbench wallet-workbench--${role}">
+    <div class="wallet-workbench__head">
+      ${renderAvatar(member, "wallet-workbench__avatar")}
+      <div>
+        <h2>${member?.name || ""}</h2>
+        <p class="member-role">系统角色：${sysRoles}</p>
+      </div>
     </div>
-    <p class="hint">积分来自优培认可、鼓励卡与陪伴记录（模拟）。</p>
+    <div class="stat-grid">
+      <div class="stat"><span>当前可用优培积分</span><strong>${wallet.balance}</strong></div>
+      <div class="stat"><span>今日已奖励</span><strong>${wallet.todayRewarded || 0}</strong></div>
+      <div class="stat"><span>今日扣分提醒</span><strong>${wallet.todayDeducted || 0}</strong></div>
+      <div class="stat"><span>累计奖励</span><strong>${wallet.totalRewarded || 0}</strong></div>
+    </div>
+    <button type="button" class="btn btn--ghost btn--block" data-toggle-ledger>进入积分记录</button>
+    <div id="parent-ledger" class="ledger-panel hidden">
+      <h4>积分记录</h4>
+      ${renderPointLedgerHTML([], "你还没有积分流水记录。")}
+    </div>
   </section>`;
+}
+
+function renderStudentWalletPanel(student, wallet, gm) {
+  if (!wallet) return "";
+  const level = gm?.level || getLevelName(gm?.index ?? gm?.currentIndex);
+  return `<section class="card-block wallet-student">
+    <div class="wallet-workbench__head">
+      ${renderAvatar(student, "wallet-workbench__avatar")}
+      <div><h2>${student?.name || "孩子"} 成长积分</h2>
+      <p class="hint">当前余额与成长资产（模拟）</p></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><span>当前余额</span><strong>${wallet.balance}</strong></div>
+      <div class="stat"><span>今日净变化</span><strong class="${(wallet.todayNetChange || 0) >= 0 ? "is-up" : "is-down"}">${(wallet.todayNetChange || 0) >= 0 ? "+" : ""}${wallet.todayNetChange || 0}</strong></div>
+      <div class="stat"><span>已投资积分</span><strong>${wallet.totalInvested || 0}</strong></div>
+      <div class="stat"><span>当前投资价值</span><strong>${wallet.currentInvestmentValue || 0}</strong></div>
+      <div class="stat"><span>总成长资产</span><strong>${wallet.totalGrowthAssets ?? wallet.balance}</strong></div>
+      <div class="stat"><span>当前等级</span><strong>${level || "—"}</strong></div>
+    </div>
+  </section>`;
+}
+
+function renderAdminWalletOverview(familyId) {
+  const summary = getWalletSummary(familyId);
+  return `<section class="card-block wallet-admin">
+    <h3>三方钱包总览（管理员）</h3>
+    <div class="stat-grid">
+      <div class="stat"><span>爸爸优培积分</span><strong>${summary.father?.balance ?? "—"}</strong></div>
+      <div class="stat"><span>妈妈优培积分</span><strong>${summary.mother?.balance ?? "—"}</strong></div>
+      <div class="stat"><span>孩子成长积分</span><strong>${summary.student?.balance ?? "—"}</strong></div>
+    </div>
+    <p class="hint">普通优培页面仍按角色展示；完整数据可通过导出 JSON 查看。</p>
+  </section>`;
+}
+
+function bindParentLedgerToggle(root, familyId, userRole) {
+  const panel = $("#parent-ledger", root);
+  const btn = $("[data-toggle-ledger]", root);
+  if (!panel || !btn) return;
+  const txs = getPointTransactionsForViewer(familyId, userRole, { limit: 30 });
+  panel.innerHTML = `<h4>积分记录</h4>${renderPointLedgerHTML(txs, "你还没有积分流水记录。")}`;
+  btn.addEventListener("click", () => {
+    panel.classList.toggle("hidden");
+    btn.textContent = panel.classList.contains("hidden") ? "进入积分记录" : "收起积分记录";
+  });
 }
 
 function renderHonorEntry() {
@@ -1537,23 +1614,26 @@ function renderCoach(root) {
   const gm = getGrowthMarket(user?.familyId, student?.memberId);
 
   let tail = "";
-  if (role === "student") {
-    if (!st.hasEncouragement) tail += EmptyCard(EMPTY_HINTS.hearts, "💛");
-    tail += `<div class="member-list">${renderParentEntryCard(father, "father", true)}${renderParentEntryCard(mother, "mother", true)}</div>`;
-  } else {
-    tail += renderParentSummaryCard(getTodayRecord());
-    tail += renderParentEntryCard(role === "father" ? father : mother, role);
-  }
+  if (role === "student" && !st.hasEncouragement) tail += EmptyCard(EMPTY_HINTS.hearts, "💛");
+  tail += `<div class="member-list">${renderParentEntryCard(father, "father", role === "student")}${renderParentEntryCard(mother, "mother", role === "student")}</div>`;
 
   const body = `${renderGrowthDashboard(student, gm)}
     ${renderCoachSummary(student, st)}
-    ${renderCoachWallets(gm)}
+    ${renderCoachWalletHint()}
     ${renderHonorEntry()}
     ${renderRecentCoachActions(user?.familyId)}
     ${tail}`;
 
   root.innerHTML = shell("优培", "Growth Coaching", "", body, MODULE_SLOGANS.coach);
-  root.querySelectorAll("[data-enter-coach]").forEach((b) => b.addEventListener("click", () => navigate(`/coach/${b.dataset.enterCoach}`)));
+  root.querySelectorAll("[data-enter-coach]").forEach((b) => b.addEventListener("click", () => {
+    const targetRole = b.dataset.enterCoach;
+    const cur = getCurrentRole();
+    if (cur !== "student" && cur !== "admin" && cur !== targetRole) {
+      showToast("请进入自己的工作台使用优培积分", "info");
+      return;
+    }
+    navigate(`/coach/${targetRole}`);
+  }));
   root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
   $("[data-invite-coach]", root)?.addEventListener("click", () => showToast("请邀请爸爸妈妈进入优培栏目发送鼓励", "info"));
   if (gm?.history?.length) {
@@ -1564,11 +1644,19 @@ function renderCoach(root) {
 function renderCoachHonor(root) {
   const student = getStudentMember();
   const user = getCurrentUser();
+  const role = getCurrentRole();
   const gm = getGrowthMarket(user?.familyId, student?.memberId);
   const inv = gm?.investments?.[0];
+  const wallet = getStudentWalletForViewer(user?.familyId, student?.memberId, role);
+  const rewardTxs = getPointTransactionsForViewer(user?.familyId, role, { limit: 20 });
+
+  const walletBlock = wallet
+    ? renderStudentWalletPanel(student, wallet, gm)
+    : `<p class="hint card-block">成长积分余额仅在孩子登录荣誉室时可见。</p>`;
 
   root.innerHTML = shell("孩子荣誉室", "Honor Room", "←", `
     <p class="hint">成长积分模拟展示，帮助你看见努力与陪伴带来的变化。</p>
+    ${walletBlock}
     <section class="card-block">
       <h3>大盘成长 K 线</h3>
       <p class="hint">反映爸爸妈妈加分、点评和任务完成度。</p>
@@ -1583,6 +1671,10 @@ function renderCoachHonor(root) {
     ? `<canvas id="honor-invest-kline" class="growth-kline" width="320" height="150"></canvas>`
     : EmptyCard("暂无投资走势", "🎯")}
     </section>
+    <section class="card-block">
+      <h3>来自爸爸妈妈的奖励记录</h3>
+      ${renderPointLedgerHTML(rewardTxs, "还没有来自爸爸妈妈的积分奖励记录。")}
+    </section>
     <p class="growth-disclaimer">${GROWTH_DISCLAIMER}</p>`);
 
   $("[data-back]", root).onclick = () => navigate("/coach");
@@ -1595,17 +1687,19 @@ function renderCoachHonor(root) {
 function renderCoachParent(root, parentRole) {
   const role = parentRole || getCurrentRole();
   if (role !== "father" && role !== "mother") { navigate("/coach"); return; }
+  const user = getCurrentUser();
+  if (user?.role !== "admin" && user?.role !== role) {
+    navigate(user?.role === "father" || user?.role === "mother" ? `/coach/${user.role}` : "/coach");
+    return;
+  }
   const member = getMembers().find((m) => m.role === role);
   const wb = getParentWorkbenchMeta(role, member);
+  const wallet = getParentWalletForViewer(user?.familyId, role, user?.role);
   const tip = RemindCard(wb?.tagline || "今天可以先看看孩子的状态，再给出合适的陪伴。");
 
   root.innerHTML = shell(wb?.title || member?.name || "家长工作台", wb?.subtitle || "Coach", "←", `
-    <div class="coach-card coach-card--${role}">
-      <div class="coach-card__head">${renderAvatar(member, "coach-card__avatar")}
-        <div><span class="member-role">${formatMemberRoleLine(member)}</span>
-        <div class="tag-row">${tagsHTML(member?.personalityTags)}</div></div>
-      </div>
-    </div>
+    ${renderParentWalletHeader(member, role, wallet)}
+    ${renderParentSummaryCard(getTodayRecord())}
     ${tip}
     <div class="coach-actions">
       <button class="coach-btn" data-act="praise">👏 认可成绩</button>
@@ -1616,6 +1710,7 @@ function renderCoachParent(root, parentRole) {
     <div id="coach-form" class="coach-form hidden"></div>`);
 
   $("[data-back]", root).onclick = () => navigate("/coach");
+  bindParentLedgerToggle(root, user?.familyId, user?.role);
 
   const box = $("#coach-form", root);
   root.querySelectorAll(".coach-btn").forEach((btn) => btn.addEventListener("click", () => {
@@ -2069,7 +2164,7 @@ function renderProfileSection(root, section) {
   }
 
   if (section === "data" && role !== "student") {
-    root.innerHTML = shell(titles.data, "", "←", `<div class="card-block"><div class="action-list">
+    root.innerHTML = shell(titles.data, "", "←", `${admin ? renderAdminWalletOverview(user?.familyId) : ""}<div class="card-block"><div class="action-list">
       <button class="btn btn--ghost btn--block" id="ex-j">导出 JSON</button>
       <button class="btn btn--ghost btn--block" id="ex-c">导出 CSV</button>
       <label class="btn btn--ghost btn--block">导入 JSON<input type="file" id="im-j" accept="application/json" hidden /></label>
