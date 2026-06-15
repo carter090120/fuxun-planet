@@ -36,6 +36,7 @@ const coach = await import(pathToFileURL(path.join(root, "trainingCoach.js")).hr
 const notes = await import(pathToFileURL(path.join(root, "notifications.js")).href);
 const parentSummary = await import(pathToFileURL(path.join(root, "parentSummary.js")).href);
 const growthAssets = await import(pathToFileURL(path.join(root, "growthAssets.js")).href);
+const pointLedger = await import(pathToFileURL(path.join(root, "pointLedger.js")).href);
 
 const results = { pass: [], fail: [] };
 const ok = (name, cond) => (cond ? results.pass.push(name) : results.fail.push(name));
@@ -78,6 +79,74 @@ ok("积分. 刷新后持久化",
 ok("积分. 权限-孩子不能自加分", !growthAssets.canStudentSelfCredit("student"));
 ok("积分. 权限-爸爸只能用爸爸钱包", growthAssets.canUseParentWallet("father", "father")
   && !growthAssets.canUseParentWallet("father", "mother"));
+
+// 积分流水 v14-1B
+const fatherUser = storage.loadState().users.find((u) => u.role === "father");
+const stuUserEarly = storage.loadState().users.find((u) => u.role === "student");
+auth.loginAsUser(fatherUser.userId);
+const rewardFather = pointLedger.rewardStudent({
+  parentRole: "father", points: 100, reason: "阅读进步",
+});
+const stAfterFather = storage.loadState();
+const fatherAfter = growthAssets.getParentWalletByRole(stAfterFather, fam.familyId, "father");
+const studentAfterFather = growthAssets.getStudentWalletFromState(stAfterFather, fam.familyId, student.memberId);
+ok("流水. 爸爸加分扣爸爸钱包", rewardFather.ok
+  && fatherAfter?.balance === 9900
+  && studentAfterFather?.balance === 10100
+  && fatherAfter?.totalRewarded === 100);
+ok("流水. 爸爸加分生成流水", (stAfterFather.pointTransactions || []).some(
+  (t) => t.type === "reward" && t.points === 100 && t.affectsMarket === true && t.fromRole === "father",
+));
+
+const badMotherWallet = pointLedger.rewardStudent({ parentRole: "mother", points: 10 });
+ok("流水. 爸爸不能用妈妈钱包", !badMotherWallet.ok);
+
+auth.loginAsUser(storage.loadState().users.find((u) => u.role === "mother").userId);
+const rewardMother = pointLedger.rewardStudent({
+  parentRole: "mother", points: 50, reason: "打卡认真",
+});
+const stAfterMother = storage.loadState();
+ok("流水. 妈妈加分扣妈妈钱包", rewardMother.ok
+  && growthAssets.getParentWalletByRole(stAfterMother, fam.familyId, "mother")?.balance === 9950
+  && growthAssets.getStudentWalletFromState(stAfterMother, fam.familyId, student.memberId)?.balance === 10150);
+
+auth.loginAsUser(stuUserEarly.userId);
+const studentReward = pointLedger.rewardStudent({ parentRole: "father", points: 10 });
+ok("流水. 孩子不能给自己加分", !studentReward.ok);
+
+auth.loginAsUser(fatherUser.userId);
+const fatherBalBefore = growthAssets.getParentWalletByRole(storage.loadState(), fam.familyId, "father")?.balance;
+const motherBalBefore = growthAssets.getParentWalletByRole(storage.loadState(), fam.familyId, "mother")?.balance;
+const deduct = pointLedger.deductStudent({
+  parentRole: "father", points: 30, reason: "审题马虎", advice: "先圈关键词再选答案",
+});
+const stAfterDeduct = storage.loadState();
+const studentAfterDeduct = growthAssets.getStudentWalletFromState(stAfterDeduct, fam.familyId, student.memberId);
+ok("流水. 扣分减少孩子积分", deduct.ok && studentAfterDeduct?.balance === 10120);
+ok("流水. 扣分不增加父母钱包", deduct.parentWalletsUnchanged
+  && growthAssets.getParentWalletByRole(stAfterDeduct, fam.familyId, "father")?.balance === fatherBalBefore
+  && growthAssets.getParentWalletByRole(stAfterDeduct, fam.familyId, "mother")?.balance === motherBalBefore);
+ok("流水. 扣分生成流水", (stAfterDeduct.pointTransactions || []).some(
+  (t) => t.type === "criticism" && t.points === 30 && t.advice.includes("关键词"),
+));
+const noAdvice = pointLedger.deductStudent({
+  parentRole: "father", points: 10, reason: "分心", advice: "",
+});
+ok("流水. 扣分必须填写建议", !noAdvice.ok);
+
+const summary = pointLedger.getWalletSummary(fam.familyId);
+ok("流水. 钱包摘要", summary.student?.balance === 10120
+  && summary.recentTransactions.length >= 3
+  && summary.growthMarket?.baseIndex === 4000);
+
+storage.patchState((s) => {
+  const w = growthAssets.getParentWalletByRole(s, fam.familyId, "father");
+  if (w) w.balance = 40;
+});
+const broke = pointLedger.rewardStudent({ parentRole: "father", points: 100 });
+ok("流水. 钱包不足不能加分", !broke.ok && broke.error === pointLedger.MSG_INSUFFICIENT_WALLET);
+
+auth.loginAsUser(stuUserEarly.userId);
 
 // 9-10 训练清零（答对全部错题）
 let after = session;

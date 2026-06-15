@@ -92,6 +92,7 @@ const DEFAULT_STATE = {
   notifications: [],
   parentWallets: [],
   studentWallets: [],
+  pointTransactions: [],
   growthMarket: null,
   privacy: {
     showScores: true, showLocation: true, showSelfie: true,
@@ -136,6 +137,7 @@ export function loadState() {
       notifications: migrateNotifications(p.notifications),
       parentWallets: p.parentWallets || [],
       studentWallets: p.studentWallets || [],
+      pointTransactions: p.pointTransactions || [],
       growthMarket: p.growthMarket ?? null,
     };
     const { state: ensured, changed } = ensureGrowthAssets(merged);
@@ -370,6 +372,7 @@ export function importJson(text) {
     notifications: migrateNotifications(incoming.notifications),
     parentWallets: incoming.parentWallets || [],
     studentWallets: incoming.studentWallets || [],
+    pointTransactions: incoming.pointTransactions || [],
     growthMarket: incoming.growthMarket ?? null,
   };
   const { state: ensured } = ensureGrowthAssets(merged);
