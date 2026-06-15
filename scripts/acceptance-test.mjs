@@ -37,6 +37,7 @@ const notes = await import(pathToFileURL(path.join(root, "notifications.js")).hr
 const parentSummary = await import(pathToFileURL(path.join(root, "parentSummary.js")).href);
 const growthAssets = await import(pathToFileURL(path.join(root, "growthAssets.js")).href);
 const pointLedger = await import(pathToFileURL(path.join(root, "pointLedger.js")).href);
+const marketKline = await import(pathToFileURL(path.join(root, "marketKline.js")).href);
 
 const results = { pass: [], fail: [] };
 const ok = (name, cond) => (cond ? results.pass.push(name) : results.fail.push(name));
@@ -148,6 +149,55 @@ ok("流水. 钱包不足不能加分", !broke.ok && broke.error === pointLedger.
 
 auth.loginAsUser(stuUserEarly.userId);
 
+// 成长大盘 K 线 v14-1C
+const todayKey = storage.formatDateKey();
+storage.patchState((s) => {
+  s.marketKlines = (s.marketKlines || []).filter((k) => k.familyId !== fam.familyId);
+});
+const impactBase = marketKline.calculateMarketImpact(todayKey, {
+  familyId: fam.familyId, studentId: student.memberId,
+});
+const kFresh = marketKline.upsertMarketKline(todayKey, {
+  familyId: fam.familyId, studentId: student.memberId,
+});
+ok("K线. 初始 open 4000", kFresh.kline.open === 4000);
+ok("K线. 可生成当天K线", !!kFresh.kline?.close && kFresh.kline.date === todayKey);
+ok("K线. 父母奖励影响 parentPointImpact", impactBase.parentPointImpact === 12
+  && kFresh.kline.parentPointImpact === 12);
+ok("K线. 扣分计入净奖励", impactBase.parentNetPoints === 120);
+
+auth.loginAsUser(fatherUser.userId);
+pointLedger.rewardStudent({ parentRole: "father", points: 20, reason: "二次奖励" });
+const kMerged = marketKline.upsertMarketKline(todayKey, {
+  familyId: fam.familyId, studentId: student.memberId,
+});
+const todayBars = storage.loadState().marketKlines.filter(
+  (k) => k.familyId === fam.familyId && k.date === todayKey,
+);
+ok("K线. 同日多次事件合并一根", todayBars.length === 1
+  && kMerged.impact.parentNetPoints === 140);
+
+storage.patchState((s) => {
+  s.pointTransactions.unshift({
+    transactionId: "honor-test-1",
+    familyId: fam.familyId,
+    studentId: student.memberId,
+    fromUserId: fatherUser.userId,
+    fromRole: "father",
+    type: "honor",
+    honorType: "表扬信",
+    points: 500,
+    reason: "表扬信",
+    affectsMarket: true,
+    createdAt: new Date().toISOString(),
+  });
+});
+const kHonor = marketKline.upsertMarketKline(todayKey, {
+  familyId: fam.familyId, studentId: student.memberId,
+});
+ok("K线. 荣誉影响 honorImpact", kHonor.impact.honorImpact === 75
+  && kHonor.kline.honorImpact === 75);
+
 // 9-10 训练清零（答对全部错题）
 let after = session;
 for (const wrongM of mistakes.filter((m) => !m.isCorrect)) {
@@ -156,6 +206,23 @@ for (const wrongM of mistakes.filter((m) => !m.isCorrect)) {
   after = coach.submitTrainingAnswer(after, wrongM.questionId, q.answerKey, graded, wrongM);
 }
 ok("9-10. 错题清零", after.status === "completed" && after.pool.length === 0);
+
+const kRetrain = marketKline.upsertMarketKline(todayKey, {
+  familyId: fam.familyId, studentId: student.memberId,
+});
+ok("K线. 复训清零 retrainImpact", kRetrain.kline.retrainImpact === 100);
+
+const synced = storage.loadState().growthMarket;
+ok("K线. currentIndex 同步 close", synced.currentIndex === kRetrain.kline.close
+  && synced.index === kRetrain.kline.close);
+
+marketKline.rebuildMarketKlines(7, { familyId: fam.familyId, studentId: student.memberId });
+const week = marketKline.getMarketKlines(7, { familyId: fam.familyId, studentId: student.memberId });
+ok("K线. 最近7天可读", week.length === 7);
+
+const latest = marketKline.getLatestMarketSummary({ familyId: fam.familyId, studentId: student.memberId });
+ok("K线. 最新摘要", latest.currentIndex === week[week.length - 1].close
+  && latest.baseIndex === 4000);
 ok("10. 错题池持久化清零", mistakes.filter((m) => !storage.getMistakes(fam.familyId).find((x) => x.questionId === m.questionId)?.isCorrect).length === 0);
 
 // 11-13 打卡

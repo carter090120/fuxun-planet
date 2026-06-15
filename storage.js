@@ -93,6 +93,7 @@ const DEFAULT_STATE = {
   parentWallets: [],
   studentWallets: [],
   pointTransactions: [],
+  marketKlines: [],
   growthMarket: null,
   privacy: {
     showScores: true, showLocation: true, showSelfie: true,
@@ -138,6 +139,7 @@ export function loadState() {
       parentWallets: p.parentWallets || [],
       studentWallets: p.studentWallets || [],
       pointTransactions: p.pointTransactions || [],
+      marketKlines: p.marketKlines || [],
       growthMarket: p.growthMarket ?? null,
     };
     const { state: ensured, changed } = ensureGrowthAssets(merged);
@@ -373,6 +375,7 @@ export function importJson(text) {
     parentWallets: incoming.parentWallets || [],
     studentWallets: incoming.studentWallets || [],
     pointTransactions: incoming.pointTransactions || [],
+    marketKlines: incoming.marketKlines || [],
     growthMarket: incoming.growthMarket ?? null,
   };
   const { state: ensured } = ensureGrowthAssets(merged);

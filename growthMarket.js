@@ -6,6 +6,7 @@ import {
   ensureGrowthAssets, getGrowthIndexLevel, GROWTH_BASE_INDEX,
   PARENT_INITIAL_BALANCE,
 } from "./growthAssets.js";
+import { getMarketKlines, getLatestMarketSummary, rebuildMarketKlines } from "./marketKline.js";
 
 export const GROWTH_DISCLAIMER = "成长积分模拟，非真实投资。";
 
@@ -30,23 +31,27 @@ function scoreToCandle(prevClose, score, dateKey) {
 
 export function seedGrowthMarket(familyId, studentId) {
   const today = formatDateKey();
-  const history = [];
-  let base = GROWTH_BASE_INDEX;
-  const demoChanges = [-8, 12, 6, -4, 10, 8, 14];
-  for (let i = 6; i >= 0; i--) {
-    const dk = offsetDateKey(today, -i);
-    const change = demoChanges[6 - i];
-    const open = base;
-    const close = base + change;
-    const high = Math.max(open, close) + 12;
-    const low = Math.min(open, close) - 8;
-    history.push({ dateKey: dk, open, close, high, low, change });
-    base = close;
-  }
-  const currentIndex = history[history.length - 1].close;
-  const prev = history[history.length - 2]?.close || currentIndex;
-  const todayChange = currentIndex - prev;
-  const todayChangePercent = prev ? Math.round((todayChange / prev) * 1000) / 10 : 0;
+  patchState((s) => {
+    ensureGrowthAssets(s);
+    if (!s.growthMarket || s.growthMarket.familyId !== familyId) {
+      s.growthMarket = {
+        familyId,
+        studentId,
+        baseIndex: GROWTH_BASE_INDEX,
+        currentIndex: GROWTH_BASE_INDEX,
+        index: GROWTH_BASE_INDEX,
+        disclaimer: GROWTH_DISCLAIMER,
+        investments: [{
+          goal: "SAT Reading 提升",
+          invested: 500,
+          current: 528,
+          history: [],
+        }],
+      };
+    }
+  });
+
+  rebuildMarketKlines(7, { familyId, studentId });
 
   const investHistory = [];
   let inv = 500;
@@ -55,38 +60,17 @@ export function seedGrowthMarket(familyId, studentId) {
   });
 
   patchState((s) => {
-    ensureGrowthAssets(s);
     const fatherBal = s.parentWallets.find((w) => w.familyId === familyId && w.parentRole === "father")?.balance
       ?? PARENT_INITIAL_BALANCE;
     const motherBal = s.parentWallets.find((w) => w.familyId === familyId && w.parentRole === "mother")?.balance
       ?? PARENT_INITIAL_BALANCE;
-    s.growthMarket = {
-      familyId,
-      studentId,
-      baseIndex: GROWTH_BASE_INDEX,
-      currentIndex,
-      todayChange,
-      todayChangePercent,
-      index: currentIndex,
-      todayChangePct: todayChangePercent,
-      level: getLevelName(currentIndex),
-      updatedAt: new Date().toISOString(),
-      history,
-      wallets: { father: fatherBal, mother: motherBal },
-      todayFactors: [
-        { label: "爸爸奖励", value: 80, sign: 1 },
-        { label: "妈妈奖励", value: 50, sign: 1 },
-        { label: "复训清零", value: 20, sign: 1 },
-        { label: "今日打卡完成率", value: "92%", isText: true },
-      ],
-      investments: [{
-        goal: "SAT Reading 提升",
-        invested: 500,
-        current: 528,
-        history: investHistory,
-      }],
-      disclaimer: GROWTH_DISCLAIMER,
-    };
+    if (s.growthMarket?.familyId === familyId) {
+      s.growthMarket.wallets = { father: fatherBal, mother: motherBal };
+      s.growthMarket.disclaimer = GROWTH_DISCLAIMER;
+      if (s.growthMarket.investments?.[0]) {
+        s.growthMarket.investments[0].history = investHistory;
+      }
+    }
   });
 }
 
@@ -147,6 +131,24 @@ export function getGrowthMarket(familyId, studentId) {
   const state = loadState();
   const gm = state.growthMarket;
   if (gm?.familyId === familyId) {
+    const klines = getMarketKlines(7, { familyId, studentId });
+    if (klines.length) {
+      gm.history = klines.map((k) => ({
+        dateKey: k.date,
+        open: k.open,
+        high: k.high,
+        low: k.low,
+        close: k.close,
+        change: k.change,
+      }));
+      const latest = klines[klines.length - 1];
+      gm.currentIndex = latest.close;
+      gm.index = latest.close;
+      gm.todayChange = latest.change;
+      gm.todayChangePercent = latest.changePercent;
+      gm.todayChangePct = latest.changePercent;
+      gm.level = getLevelName(latest.close);
+    }
     const fatherBal = state.parentWallets?.find((w) => w.familyId === familyId && w.parentRole === "father")?.balance;
     const motherBal = state.parentWallets?.find((w) => w.familyId === familyId && w.parentRole === "mother")?.balance;
     if (fatherBal != null || motherBal != null) {

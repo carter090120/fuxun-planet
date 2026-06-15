@@ -2,7 +2,7 @@
  * 复训星球 — 积分流水与父母加减分逻辑
  */
 import {
-  loadState, patchState, getStudentMember, nowIso, uid,
+  loadState, patchState, getStudentMember, nowIso, uid, formatDateKey,
 } from "./storage.js";
 import {
   ensureGrowthAssets,
@@ -11,6 +11,7 @@ import {
   assertParentWalletAccess,
 } from "./growthAssets.js";
 import { getCurrentUser, getSession } from "./auth.js";
+import { upsertMarketKline } from "./marketKline.js";
 
 export const MAX_REWARD_POINTS = 500;
 export const MAX_DEDUCTION_POINTS = 200;
@@ -173,10 +174,13 @@ export function rewardStudent({
     syncGrowthMarketWallets(s, actor.familyId);
   });
 
+  const kline = upsertMarketKline(formatDateKey(), { familyId: actor.familyId, studentId: student.memberId });
+
   return {
     ok: true,
     message: MSG_REWARD_SUCCESS(student.name, pts.points),
     transaction,
+    kline: kline.kline,
     summary: getWalletSummary(actor.familyId),
   };
 }
@@ -244,6 +248,8 @@ export function deductStudent({
     syncGrowthMarketWallets(s, actor.familyId);
   });
 
+  const kline = upsertMarketKline(formatDateKey(), { familyId: actor.familyId, studentId: student.memberId });
+
   const after = loadState();
   const fatherAfter = getParentWalletByRole(after, actor.familyId, "father")?.balance;
   const motherAfter = getParentWalletByRole(after, actor.familyId, "mother")?.balance;
@@ -253,6 +259,7 @@ export function deductStudent({
     message: MSG_DEDUCT_SUCCESS,
     transaction,
     parentWalletsUnchanged: fatherBefore === fatherAfter && motherBefore === motherAfter,
+    kline: kline.kline,
     summary: getWalletSummary(actor.familyId),
   };
 }
