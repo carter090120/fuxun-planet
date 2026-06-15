@@ -10,6 +10,9 @@ import { getSession } from "./auth.js";
 
 export const HONOR_POINT_VALUES = {
   爸爸贺卡: 500,
+  妈妈鼓励卡: 500,
+  温暖表扬信: 500,
+  荣誉徽章: 500,
   鼓励贺卡: 200,
   表扬信: 500,
   奖章: 500,
@@ -17,6 +20,7 @@ export const HONOR_POINT_VALUES = {
   学习方法卡: 100,
   父子约定: 300,
   亲子活动: 300,
+  明日小目标: 100,
   明日特权: 200,
   精神鼓励: 200,
   物质奖励: 200,

@@ -362,3 +362,47 @@ export function canFatherAfford(tool, wallet) {
 export function getFatherWalletForPage(familyId, userRole) {
   return getParentWalletForViewer(familyId, "father", userRole);
 }
+
+export function submitFatherSpecialPerformance({
+  tool, record, member, student, familyId, points, badgeType,
+}) {
+  const sp = record?.specialPerformance;
+  if (!sp?.hasPerformance || sp.hasPerformance === "no") {
+    return { ok: false, error: "暂无特别表现可确认" };
+  }
+  const summary = formatSpecialPerformanceSummary(sp);
+  const scenario = sp.subcategory || sp.category || "特别表现";
+  const ptsUse = Number(points) || sp.suggestedPoints || FATHER_REWARD_POINTS.card;
+  const useTool = tool || "praise-letter";
+
+  const r = submitFatherReward({
+    tool: useTool,
+    scenario,
+    scenarioCategory: "learning",
+    medalType: badgeType || (useTool === "medal" ? "今日高光星" : ""),
+    title: useTool === "medal" ? (badgeType || "今日高光星") : (useTool === "praise-letter" ? "表扬信" : "爸爸贺卡"),
+    content: summary,
+    points: ptsUse,
+    relatedRecordId: record.recordId,
+    member,
+    student,
+    familyId,
+  });
+  if (!r.ok) return r;
+
+  addHonorItem({
+    familyId,
+    studentId: student?.memberId,
+    fromRole: "father",
+    fromName: member?.name || "爸爸",
+    itemType: "growth-event",
+    title: "特别表现确认",
+    content: summary,
+    scenario,
+    points: ptsUse,
+    relatedRecordId: record.recordId,
+    specialPerformance: true,
+  });
+
+  return r;
+}

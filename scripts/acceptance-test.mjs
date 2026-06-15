@@ -42,6 +42,7 @@ const marketKline = await import(pathToFileURL(path.join(root, "marketKline.js")
 const growthMarket = await import(pathToFileURL(path.join(root, "growthMarket.js")).href);
 const memberRoles = await import(pathToFileURL(path.join(root, "memberRoles.js")).href);
 const fatherWorkbench = await import(pathToFileURL(path.join(root, "fatherWorkbench.js")).href);
+const motherWorkbench = await import(pathToFileURL(path.join(root, "motherWorkbench.js")).href);
 const honorItems = await import(pathToFileURL(path.join(root, "honorItems.js")).href);
 
 const results = { pass: [], fail: [] };
@@ -99,7 +100,7 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
   && demoRec.specialPerformance.suggestedPoints === 200);
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
-ok("v15. SW含memberRoles与v16b", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16b"));
+ok("v15. SW含memberRoles与v16c", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16c"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -107,8 +108,13 @@ ok("v16b. 爸爸贺卡默认500", fatherWorkbench.FATHER_REWARD_POINTS.card === 
 ok("v16b. 爸爸表扬信默认500", fatherWorkbench.FATHER_REWARD_POINTS["praise-letter"] === 500);
 ok("v16b. 爸爸奖章默认500", fatherWorkbench.FATHER_REWARD_POINTS.medal === 500);
 ok("v16b. 三类奖励场景", Object.keys(fatherWorkbench.FATHER_REWARD_SCENARIOS).length === 3);
-ok("v16b. SW含fatherWorkbench", swText.includes("fatherWorkbench.js") && swText.includes("fuxun-planet-v16b"));
+ok("v16b. SW含fatherWorkbench", swText.includes("fatherWorkbench.js") && swText.includes("motherWorkbench.js"));
 ok("v16b. app含renderFatherWorkbench", appText.includes("renderFatherWorkbench") && appText.includes("爸爸奖励工具箱"));
+ok("v16c. 妈妈鼓励卡默认500", motherWorkbench.MOTHER_REWARD_POINTS.card === 500);
+ok("v16c. 三类陪伴场景", Object.keys(motherWorkbench.MOTHER_COMPANION_SCENARIOS).length === 3);
+ok("v16c. app含renderMotherWorkbench", appText.includes("renderMotherWorkbench") && appText.includes("妈妈陪伴工具箱"));
+ok("v16c. 优培总览无钱包hint", !appText.includes("${renderCoachWalletHint()}"));
+ok("v16c. 荣誉室分栏", appText.includes("我的贺卡") && appText.includes("妈妈鼓励记录"));
 ok("v15. app含rewardStudent", appText.includes("rewardStudent"));
 
 storage.saveState(st);
@@ -418,6 +424,48 @@ ok("v16b. 积分不足不能发奖章", !brokeMedal.ok);
 const snap = fatherWorkbench.buildFatherChildSnapshot(fam.familyId, student.memberId);
 const ai = fatherWorkbench.buildFatherAiSuggestion(snap);
 ok("v16b. 爸爸AI建议", !!ai.highlight && !!ai.rewardMethod && ai.suggestedPoints >= 100);
+
+// v16-C Sara 陪伴官奖励闭环
+auth.loginAsUser(storage.loadState().users.find((u) => u.role === "mother").userId);
+const motherMember = members.find((m) => m.role === "mother");
+const mBalBefore = growthAssets.getParentWalletByRole(storage.loadState(), fam.familyId, "mother")?.balance;
+const sBalBeforeMother = growthAssets.getStudentWalletFromState(storage.loadState(), fam.familyId, student.memberId)?.balance;
+const motherCard = motherWorkbench.submitMotherReward({
+  tool: "card",
+  scenario: "压力大但坚持完成",
+  scenarioCategory: "emotion",
+  title: "Sara测试鼓励卡",
+  content: "妈妈看见你的努力",
+  points: 500,
+  member: motherMember,
+  student,
+  familyId: fam.familyId,
+});
+const stAfterMotherCard = storage.loadState();
+ok("v16c. 鼓励卡扣妈妈钱包500", motherCard.ok
+  && growthAssets.getParentWalletByRole(stAfterMotherCard, fam.familyId, "mother")?.balance === mBalBefore - 500);
+ok("v16c. 鼓励卡增孩子积分", motherCard.ok
+  && growthAssets.getStudentWalletFromState(stAfterMotherCard, fam.familyId, student.memberId)?.balance === sBalBeforeMother + 500);
+ok("v16c. 鼓励卡honor流水", motherCard.ok
+  && (stAfterMotherCard.pointTransactions || []).some((t) => t.fromRole === "mother" && t.honorType === "妈妈鼓励卡"));
+ok("v16c. 鼓励卡honorItem", motherCard.ok
+  && honorItems.getHonorItems(fam.familyId, { fromRole: "mother", itemType: "card" }).some((h) => h.title === "Sara测试鼓励卡"));
+const motherSnap = motherWorkbench.buildMotherChildSnapshot(fam.familyId, student.memberId);
+const motherAi = motherWorkbench.buildMotherAiSuggestion(motherSnap);
+ok("v16c. 妈妈AI建议", !!motherAi.highlight && motherAi.noDeduct === true);
+const tomorrowGoal = motherWorkbench.submitMotherReward({
+  tool: "tomorrow-goal",
+  scenario: "明天计划清晰",
+  tomorrowTask: "先完成错题复训",
+  motherHelp: "陪你复盘10分钟",
+  tomorrowReminder: "记得先喝水",
+  points: 0,
+  member: motherMember,
+  student,
+  familyId: fam.familyId,
+});
+ok("v16c. 明日小目标不扣分", tomorrowGoal.ok && tomorrowGoal.points === 0);
+ok("v16c. 明日小目标记录", (storage.loadState().coachingActions || []).some((a) => a.parentRole === "mother" && a.type === "plan"));
 
 // 训练恢复
 const restored = coach.restoreActiveSession(fam.familyId, mat.materialId);
