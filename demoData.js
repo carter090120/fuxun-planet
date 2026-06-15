@@ -5,6 +5,7 @@ import { clearAllData, addMaterial, upsertMistakes, formatDateKey } from "./stor
 import { registerFamily, getStudentMember } from "./auth.js";
 import { parseQuestionBank, buildMistakesFromAnswers } from "./questionParser.js";
 import { createTrainingSession } from "./trainingCoach.js";
+import { seedGrowthMarket } from "./growthMarket.js";
 
 export const DEMO_CREDENTIALS = {
   email: "demo@fuxun.local",
@@ -119,6 +120,8 @@ export function seedDemo() {
       studentId: student?.memberId,
     });
   }
+
+  seedGrowthMarket(reg.family.familyId, student?.memberId);
 
   return {
     ok: true,

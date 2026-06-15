@@ -26,7 +26,8 @@ export function isPublicRoute(path) {
     || path === "train-complete"
     || path === "poster"
     || path === "hearts"
-    || path === "coach-parent";
+    || path === "coach-parent"
+    || path === "coach-honor";
 }
 
 export function guardRoute(path) {
@@ -38,7 +39,7 @@ export function guardRoute(path) {
 export function updateBottomNav(route, root, onNav, unreadCount = 0) {
   const nav = document.getElementById("bottom-nav");
   if (!nav) return;
-  const hideNav = ["train-play", "train-complete", "poster", "hearts", "coach-parent"];
+  const hideNav = ["train-play", "train-complete", "poster", "hearts", "coach-parent", "coach-honor"];
   const show = isLoggedIn() && !PUBLIC.has(route.path) && !hideNav.includes(route.path);
   nav.classList.toggle("hidden", !show);
   document.body.classList.toggle("has-nav", show);

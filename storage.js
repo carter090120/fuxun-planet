@@ -88,6 +88,7 @@ const DEFAULT_STATE = {
   dailyRecords: [],
   coachingActions: [],
   notifications: [],
+  growthMarket: null,
   privacy: {
     showScores: true, showLocation: true, showSelfie: true,
     allowHideMood: true, allowParentMistakeDetail: true, allowExport: true,
@@ -129,6 +130,7 @@ export function loadState() {
       dailyRecords: p.dailyRecords || [],
       coachingActions: p.coachingActions || [],
       notifications: migrateNotifications(p.notifications),
+      growthMarket: p.growthMarket ?? null,
     };
     return merged;
   } catch { return structuredClone(DEFAULT_STATE); }

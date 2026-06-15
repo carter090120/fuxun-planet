@@ -355,6 +355,40 @@ body.train-immersive { padding-bottom: calc(12px + var(--safe-b)); }
 .status-btn span { display: flex; align-items: center; justify-content: center; min-height: 44px; font-size: 0.8rem; font-weight: 700; padding: 6px; }
 .status-btn:has(input:checked) { border-color: var(--blue); background: rgba(59,130,246,0.12); }
 
+/* Growth board (优培 K 线) */
+.growth-board { padding: 16px; border-radius: 20px; background: linear-gradient(165deg, #fff, #eff6ff); border: 1px solid rgba(59,130,246,0.2); }
+.growth-board__head { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: start; margin-bottom: 12px; }
+.growth-board__avatar { font-size: 2.6rem; line-height: 1; }
+.growth-board__title { margin: 0; font-size: 1.15rem; line-height: 1.35; }
+.growth-board__sub { margin: 6px 0 0; font-size: 0.82rem; color: var(--soft); line-height: 1.5; }
+.growth-board__card-title { margin: 0 0 10px; font-size: 1rem; color: var(--blue); }
+.growth-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.growth-stat { padding: 10px 8px; border-radius: 12px; background: #fff; border: 1px solid var(--line); text-align: center; }
+.growth-stat span { display: block; font-size: 0.68rem; color: var(--soft); font-weight: 700; }
+.growth-stat strong { display: block; margin-top: 4px; font-size: 0.82rem; }
+.growth-stat__big { font-size: 1.1rem !important; color: var(--blue-deep); }
+.is-up { color: #15803d !important; }
+.is-down { color: #c2410c !important; }
+.growth-chart-wrap { margin: 8px 0 12px; }
+.growth-chart-label { margin: 0 0 6px; font-size: 0.82rem; font-weight: 800; color: var(--navy); }
+.growth-chart-label span { color: var(--soft); font-weight: 600; margin-left: 6px; }
+.growth-kline { width: 100%; max-width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--line); }
+.growth-factors h4 { margin: 0 0 8px; font-size: 0.86rem; }
+.growth-factors ul { margin: 0; padding: 0; list-style: none; }
+.growth-factors li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 0.84rem; }
+.growth-factors li:last-child { border-bottom: none; }
+.growth-disclaimer { margin: 10px 0 0; font-size: 0.72rem; color: var(--soft); text-align: center; }
+.wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wallet-card { display: flex; gap: 10px; align-items: center; padding: 12px; border-radius: 14px; background: #fff; border: 1px solid var(--line); }
+.wallet-card--father { background: linear-gradient(165deg, #fff, #eff6ff); }
+.wallet-card--mother { background: linear-gradient(165deg, #fff, #fdf2f8); }
+.wallet-card__icon { font-size: 1.6rem; }
+.wallet-card__amt { margin: 4px 0 0; font-size: 0.9rem; font-weight: 800; color: var(--blue-deep); }
+.honor-entry { text-align: center; }
+.coach-recent-list { display: flex; flex-direction: column; gap: 8px; }
+.coach-recent-item { display: flex; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: rgba(59,130,246,0.06); font-size: 0.84rem; }
+.coach-recent-item span { color: var(--soft); font-size: 0.78rem; }
+
 /* Coach */
 .coach-card--father { border-left: 4px solid var(--blue); }
 .coach-card--mother { border-left: 4px solid #ec4899; }
