@@ -1,4 +1,4 @@
-const CACHE_NAME = "fuxun-planet-v10";
+const CACHE_NAME = "fuxun-planet-v11";
 
 const SHELL_ASSETS = [
   "./", "./index.html", "./manifest.webmanifest",

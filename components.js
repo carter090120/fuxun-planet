@@ -49,6 +49,12 @@ export function hideToast() {
   if (el) el.classList.remove("is-show");
 }
 
+function toastTone(type) {
+  if (type === "error") return "error";
+  if (type === "info" || type === "warn") return "warn";
+  return "success";
+}
+
 export function showToast(message, type = "success") {
   let el = document.getElementById("app-toast");
   if (!el) {
@@ -66,9 +72,9 @@ export function showToast(message, type = "success") {
   const msgEl = el.querySelector(".toast__msg") || el;
   if (msgEl.classList?.contains("toast__msg")) msgEl.textContent = message;
   else el.textContent = message;
-  el.className = `toast toast--${type} is-show`;
+  el.className = `toast toast--${toastTone(type)} is-show`;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => hideToast(), 3000);
+  toastTimer = setTimeout(() => hideToast(), 2800);
 }
 
 export function showConfirm({
