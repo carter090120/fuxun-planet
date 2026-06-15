@@ -104,12 +104,12 @@
               await Promise.all(keys.map((k) => caches.delete(k)));
             }
           } catch { /* ignore */ }
-          location.href = `${location.pathname}?v=14`;
+          location.href = `${location.pathname}?v=15`;
         });
       }
 
       try {
-        const mod = await import("./app.js?v=14");
+        const mod = await import("./app.js?v=15");
         await mod.initApp();
       } catch (err) {
         showInlineBootError(err);

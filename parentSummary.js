@@ -50,7 +50,12 @@ export function buildParentSummary(record, ctx = {}) {
     record.completedTasks && `完成了：${record.completedTasks}`,
   ].filter(Boolean).join("；") || "今日学习记录待补充。";
 
+  const spLine = record.specialPerformance?.hasPerformance
+    && record.specialPerformance.hasPerformance !== "no"
+    ? `特别表现：${record.specialPerformance.category || ""}${record.specialPerformance.subcategory ? ` · ${record.specialPerformance.subcategory}` : ""}${record.specialPerformance.selfRating ? `（${record.specialPerformance.selfRating}，建议 +${record.specialPerformance.suggestedPoints || 0} 分）` : ""}`
+    : "";
   const tag2 = [
+    spLine,
     record.highlight && `亮点：${record.highlight}`,
     highAbilities.length && `表现较好的能力：${highAbilities.join("、")}`,
   ].filter(Boolean).join("；") || "今天也在坚持成长，值得肯定。";
@@ -82,6 +87,7 @@ export function buildParentSummary(record, ctx = {}) {
     studyContent: record.studyContent,
     completedTasks: record.completedTasks,
     highlight: record.highlight,
+    specialPerformance: record.specialPerformance || null,
     tomorrowPlan: record.tomorrowPlan,
     parentResponsePreference: parentResponsePref,
     parentAdvice: advice,

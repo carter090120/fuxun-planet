@@ -1,11 +1,11 @@
 /**
  * 复训星球 MVP Demo v1.0 — 演示数据种子
  */
-import { clearAllData, addMaterial, upsertMistakes, formatDateKey } from "./storage.js";
+import { clearAllData, addMaterial, upsertMistakes, formatDateKey, upsertDailyRecord } from "./storage.js";
 import { registerFamily, getStudentMember } from "./auth.js";
 import { parseQuestionBank, buildMistakesFromAnswers } from "./questionParser.js";
 import { createTrainingSession } from "./trainingCoach.js";
-import { seedGrowthMarket } from "./growthMarket.js";
+import { seedDemoGrowthMarket } from "./growthMarket.js";
 
 export const DEMO_CREDENTIALS = {
   email: "demo@fuxun.local",
@@ -123,7 +123,28 @@ export function seedDemo() {
     });
   }
 
-  seedGrowthMarket(reg.family.familyId, student?.memberId);
+  seedDemoGrowthMarket(reg.family.familyId, student?.memberId);
+
+  upsertDailyRecord({
+    recordId: "demo-checkin-today",
+    familyId: reg.family.familyId,
+    studentId: student?.memberId,
+    dateKey: formatDateKey(),
+    studyContent: "SAT Reading 词汇与结构题",
+    completedTasks: "完成 5 题复训，错题清零",
+    mood: "开心",
+    energy: "充沛",
+    stress: "低",
+    totalScore: 88,
+    specialPerformance: {
+      hasPerformance: "yes",
+      category: "学习场景",
+      subcategory: "主动复训错题",
+      customDescription: "今天主动把 3 道错题全部清零了。",
+      selfRating: "坚持突破",
+      suggestedPoints: 200,
+    },
+  });
 
   return {
     ok: true,

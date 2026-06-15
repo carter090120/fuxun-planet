@@ -36,8 +36,12 @@ import { drawBarChart, drawRing, drawGrowthKline, drawInvestmentKline } from "./
 import { getGrowthMarket, formatChange, GROWTH_DISCLAIMER, getLevelName } from "./growthMarket.js";
 import {
   getParentWalletForViewer, getStudentWalletForViewer, getPointTransactionsForViewer,
-  getWalletSummary,
+  getWalletSummary, rewardStudent, deductStudent,
 } from "./pointLedger.js";
+import {
+  specialPerformanceHTML, readSpecialPerformanceFromForm, formatSpecialPerformanceSummary,
+  SPECIAL_CATEGORIES, getSuggestedPoints,
+} from "./specialPerformance.js";
 import {
   enterTrainingFocusMode, exitTrainingFocusMode, showTrainHint, updateLandscapeHint,
   requestFocusFullscreen, openParseDrawer, closeParseDrawer,
@@ -1195,6 +1199,45 @@ function collectAbilityForm(root) {
   return items;
 }
 
+function collectSpecialForm(root) {
+  const form = $("#special-f", root);
+  if (!form) return checkinDraft.specialPerformance;
+  checkinDraft.specialPerformance = readSpecialPerformanceFromForm(form);
+  return checkinDraft.specialPerformance;
+}
+
+function bindSpecialForm(root) {
+  const form = $("#special-f", root);
+  if (!form) return;
+  const fields = $("#sp-fields", form);
+  const suggest = $("#sp-suggest", form);
+  const updateSubs = () => {
+    const cat = $("#sp-cat", form)?.value;
+    const sub = $("#sp-sub", form);
+    if (!sub || !cat) return;
+    const opts = SPECIAL_CATEGORIES[cat] || [];
+    const cur = checkinDraft.specialPerformance?.subcategory || "";
+    sub.innerHTML = opts.length
+      ? opts.map((s) => `<option value="${s}" ${cur === s ? "selected" : ""}>${s}</option>`).join("")
+      : "<option value=\"\">自定义大类，请写在描述里</option>";
+  };
+  const toggleFields = () => {
+    const has = form.querySelector('input[name="spHas"]:checked')?.value;
+    fields?.classList.toggle("hidden", has !== "yes" && has !== "unsure");
+  };
+  const updateSuggest = () => {
+    const lv = $("#sp-level", form)?.value;
+    if (suggest) suggest.innerHTML = `建议积分：<strong>${lv ? getSuggestedPoints(lv) : "—"}</strong>（需父母确认）`;
+  };
+  form.querySelectorAll('input[name="spHas"]').forEach((r) => r.addEventListener("change", () => { toggleFields(); collectSpecialForm(root); persistCheckinDraft(); }));
+  $("#sp-cat", form)?.addEventListener("change", () => { updateSubs(); collectSpecialForm(root); persistCheckinDraft(); });
+  $("#sp-level", form)?.addEventListener("change", () => { updateSuggest(); collectSpecialForm(root); persistCheckinDraft(); });
+  form.querySelectorAll("textarea, select").forEach((el) => el.addEventListener("change", () => { collectSpecialForm(root); persistCheckinDraft(); }));
+  toggleFields();
+  updateSubs();
+  updateSuggest();
+}
+
 function renderCheckin(root) {
   const existing = getTodayRecord();
   const persisted = loadPersistedCheckinDraft();
@@ -1206,6 +1249,7 @@ function renderCheckin(root) {
       mood: existing?.mood, energy: existing?.energy, stress: existing?.stress,
       highlight: existing?.highlight, reflection: existing?.reflection,
       tomorrowPlan: existing?.tomorrowPlan, noteToSelf: existing?.noteToSelf,
+      specialPerformance: existing?.specialPerformance,
       abilityForm: getAbilityFormItems(existing, {}),
     };
   }
@@ -1213,7 +1257,7 @@ function renderCheckin(root) {
     checkinDraft.abilityForm = getAbilityFormItems(existing, checkinDraft.abilityForm || {});
   }
 
-  const sections = ["study", "ability", "reflect", "poster"];
+  const sections = ["study", "ability", "special", "reflect", "poster"];
   let sec = sessionStorage.getItem(CHECKIN_SEC_KEY) || "study";
   if (!sections.includes(sec)) sec = "study";
   const paint = () => {
@@ -1234,8 +1278,11 @@ function renderCheckin(root) {
       body = `<div class="checkin-live-score"><strong id="live-total">${formatScore(total)}</strong><span id="live-grade">${g.letter} ${g.label}</span></div>
         <form id="checkin-f">
           ${checkinOpenAbility ? abilityModuleDetailHTML(checkinOpenAbility, items) : abilityModuleGridHTML(items)}
-          <button class="btn btn--primary btn--block" type="button" data-next="reflect">下一步：成长复盘</button>
+          <button class="btn btn--primary btn--block" type="button" data-next="special">下一步：今日特别表现</button>
         </form>`;
+    } else if (sec === "special") {
+      body = `<form class="form" id="special-f">${specialPerformanceHTML(checkinDraft)}
+        <button class="btn btn--primary btn--block" type="button" data-next="reflect">下一步：成长复盘</button></form>`;
     } else if (sec === "reflect") {
       body = `<form class="form card-block" id="reflect-f"><h3>📝 成长复盘</h3>
         <label class="field"><span>今日亮点</span><textarea name="highlight" rows="2">${checkinDraft.highlight || ""}</textarea></label>
@@ -1250,7 +1297,9 @@ function renderCheckin(root) {
         : EmptyCard(EMPTY_HINTS.poster, "🖼️");
     }
 
-    const checkTabs = sections.map((s) => ({ id: s, label: { study: "今日学习", ability: "能力打卡", reflect: "成长复盘", poster: "生成海报" }[s] }));
+    const checkTabs = sections.map((s) => ({ id: s, label: {
+      study: "今日学习", ability: "能力打卡", special: "特别表现", reflect: "成长复盘", poster: "生成海报",
+    }[s] }));
     root.innerHTML = shell("打卡", "Daily Growth", "", `
       <div class="checkin-sticky">${SectionTabs(checkTabs, sec)}</div>
       <div class="checkin-body">${body}</div>`, MODULE_SLOGANS.checkin);
@@ -1266,6 +1315,7 @@ function renderCheckin(root) {
         }
       }
       if (sec === "ability") collectAbilityForm(root);
+      if (sec === "special") collectSpecialForm(root);
       sec = id;
       sessionStorage.setItem(CHECKIN_SEC_KEY, id);
       if (id !== "ability") {
@@ -1292,6 +1342,7 @@ function renderCheckin(root) {
         checkinDraft = { ...checkinDraft, studyContent: fd.get("study"), completedTasks: fd.get("tasks"), mood: fd.get("mood"), energy: fd.get("energy"), stress: fd.get("stress") };
       }
       if (sec === "ability") collectAbilityForm(root);
+      if (sec === "special") collectSpecialForm(root);
       persistCheckinDraft();
       sec = b.dataset.next;
       sessionStorage.setItem(CHECKIN_SEC_KEY, sec);
@@ -1301,6 +1352,8 @@ function renderCheckin(root) {
       }
       paint();
     }));
+
+    if (sec === "special") bindSpecialForm(root);
 
     if (sec === "ability") {
       const form = $("#checkin-f", root);
@@ -1348,6 +1401,7 @@ function renderCheckin(root) {
     }
 
     $("#submit-checkin", root)?.addEventListener("click", () => {
+      collectSpecialForm(root);
       const rf = $("#reflect-f", root);
       if (rf) {
         const fd = new FormData(rf);
@@ -1684,6 +1738,200 @@ function renderCoachHonor(root) {
   }, 50);
 }
 
+function markSpecialPerformanceRewarded(record, points, role) {
+  if (!record?.recordId) return;
+  upsertDailyRecord({
+    ...record,
+    specialPerformance: {
+      ...record.specialPerformance,
+      confirmedReward: { points, fromRole: role, at: new Date().toISOString() },
+    },
+  });
+}
+
+function notifyStudentFromParent(role, member, student, payload) {
+  const users = requireUsers();
+  const su = users.find((u) => u.memberId === student?.memberId);
+  if (!su) return;
+  sendHeartNotification({
+    toUserId: su.userId,
+    fromRole: role,
+    fromName: member?.name,
+    cardTitle: payload.title || "来自家人的鼓励",
+    cardText: payload.content || payload.reason || "",
+    cardStyle: payload.style || "温暖陪伴",
+    rewardType: payload.rewardType || "精神鼓励",
+    rewardName: payload.rewardName,
+    rewardCondition: payload.rewardCond,
+    rewardFulfilled: payload.fulfilled,
+  });
+}
+
+function submitParentReward(role, { points, reason, relatedRecordId, honorType, notify, cardPayload }) {
+  const pts = Number(points);
+  if (!pts || pts <= 0) return { ok: false, error: "请填写奖励积分" };
+  const student = getStudentMember();
+  const rec = getTodayRecord();
+  const reasonText = [reason, honorType].filter(Boolean).join(" · ") || "优培积分奖励";
+  const result = rewardStudent({
+    parentRole: role,
+    points: pts,
+    reason: reasonText,
+    relatedRecordId: relatedRecordId || rec?.recordId || null,
+  });
+  if (!result.ok) return result;
+  saveCoach(role, "reward", { points: pts, reason: reasonText, honorType });
+  const member = getMembers().find((m) => m.role === role);
+  if (notify) {
+    notifyStudentFromParent(role, member, student, cardPayload || { reason: reasonText, title: honorType || "积分奖励" });
+  }
+  if (rec?.specialPerformance?.suggestedPoints && pts === rec.specialPerformance.suggestedPoints) {
+    markSpecialPerformanceRewarded(rec, pts, role);
+  }
+  return result;
+}
+
+function renderSpecialPerformanceParentCard(record, role) {
+  const sp = record?.specialPerformance;
+  if (!sp?.hasPerformance) {
+    return `<section class="card-block"><h3>今日特别表现</h3><p class="hint">孩子今日尚未填写特别表现。</p></section>`;
+  }
+  if (sp.hasPerformance === "no") {
+    return `<section class="card-block"><h3>今日特别表现</h3><p class="hint">孩子填写：今天没有特别表现。</p></section>`;
+  }
+  const summary = formatSpecialPerformanceSummary(sp);
+  const confirmed = sp.confirmedReward;
+  const suggested = sp.suggestedPoints || 0;
+  return `<section class="card-block special-perf-parent">
+    <h3>今日特别表现</h3>
+    <p>${summary.replace(/\n/g, "<br>")}</p>
+    ${confirmed
+    ? `<p class="hint">已确认奖励 +${confirmed.points} 分（${confirmed.fromRole === "father" ? "爸爸" : "妈妈"}）</p>`
+    : `<div class="action-list">
+      ${role === "father"
+    ? `<button type="button" class="btn btn--sun btn--sm" data-sp-act="medal">发奖章</button>
+       <button type="button" class="btn btn--ghost btn--sm" data-sp-act="praise-letter">写表扬信</button>`
+    : `<button type="button" class="btn btn--sun btn--sm" data-sp-act="warm-card">发鼓励卡</button>
+       <button type="button" class="btn btn--ghost btn--sm" data-sp-act="family-reward">亲子奖励</button>`}
+      <button type="button" class="btn btn--primary btn--sm" data-sp-reward="${suggested}">确认建议积分 (+${suggested})</button>
+    </div>`}
+  </section>`;
+}
+
+function renderParentPointsPanel(role, record) {
+  const spPts = record?.specialPerformance?.suggestedPoints || "";
+  const defaultPts = spPts || (role === "father" ? 100 : 200);
+  if (role === "father") {
+    return `<section class="card-block parent-points">
+      <h3>积分奖励与提醒</h3>
+      <form class="form" id="reward-form">
+        <label class="field"><span>奖励积分</span><input name="points" type="number" min="1" max="500" value="${defaultPts}" /></label>
+        <label class="field"><span>奖励原因</span><textarea name="reason" rows="2" placeholder="对应哪项表现？"></textarea></label>
+        <label class="field"><span>对应表现</span><input name="performance" placeholder="如今日复训清零、主动背词汇" /></label>
+        <label class="field"><span>荣誉类型（可选）</span>
+          <select name="honorType"><option value="">无</option><option>表扬信</option><option>奖章</option><option>学习方法卡</option></select></label>
+        <button class="btn btn--primary btn--block">发放积分奖励</button>
+      </form>
+      <form class="form" id="deduct-form">
+        <h4>扣分提醒</h4>
+        <label class="field"><span>扣分分值</span><input name="points" type="number" min="1" max="200" value="20" /></label>
+        <label class="field"><span>扣分原因</span><input name="reason" required /></label>
+        <label class="field"><span>改进建议（必填）</span><textarea name="advice" rows="2" required></textarea></label>
+        <button class="btn btn--ghost btn--block">发送扣分提醒</button>
+      </form>
+    </section>`;
+  }
+  return `<section class="card-block parent-points">
+    <h3>陪伴奖励与荣誉</h3>
+    <form class="form" id="reward-form">
+      <label class="field"><span>奖励积分</span><input name="points" type="number" min="1" max="500" value="${defaultPts}" /></label>
+      <label class="field"><span>鼓励原因</span><textarea name="reason" rows="2"></textarea></label>
+      <label class="field"><span>鼓励卡标题</span><input name="cardTitle" placeholder="今天也很棒" /></label>
+      <label class="field"><span>鼓励卡内容</span><textarea name="cardContent" rows="2"></textarea></label>
+      <label class="toggle"><input type="checkbox" name="sendNotify" checked /><span>同时发送爱心提醒</span></label>
+      <button class="btn btn--sun btn--block">发放积分并发送鼓励</button>
+    </form>
+    <form class="form" id="deduct-form">
+      <h4>扣分提醒</h4>
+      <label class="field"><span>扣分分值</span><input name="points" type="number" min="1" max="200" value="20" /></label>
+      <label class="field"><span>提醒原因</span><input name="reason" required /></label>
+      <label class="field"><span>陪伴建议（必填）</span><textarea name="advice" rows="2" required></textarea></label>
+      <button class="btn btn--ghost btn--block">发送扣分提醒</button>
+    </form>
+  </section>`;
+}
+
+function bindParentPointsForms(root, role) {
+  const rec = getTodayRecord();
+  $("#reward-form", root)?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const honorType = fd.get("honorType") || "";
+    const performance = fd.get("performance") || "";
+    const reason = [fd.get("reason"), performance].filter(Boolean).join(" · ");
+    const notify = role === "mother" && fd.get("sendNotify") === "on";
+    const r = submitParentReward(role, {
+      points: fd.get("points"),
+      reason,
+      honorType,
+      notify,
+      cardPayload: {
+        title: fd.get("cardTitle") || honorType || "鼓励卡",
+        content: fd.get("cardContent") || reason,
+        style: "温暖陪伴",
+        rewardType: honorType || "精神鼓励",
+      },
+    });
+    if (!r.ok) return showToast(r.error, "error");
+    showToast(r.message || "积分奖励已发放");
+    render();
+  });
+  $("#deduct-form", root)?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const r = deductStudent({
+      parentRole: role,
+      points: fd.get("points"),
+      reason: fd.get("reason"),
+      advice: fd.get("advice"),
+      relatedRecordId: rec?.recordId,
+    });
+    if (!r.ok) return showToast(r.error, "error");
+    saveCoach(role, "deduct", { points: fd.get("points"), reason: fd.get("reason") });
+    showToast(r.message || "扣分提醒已记录");
+    render();
+  });
+  root.querySelectorAll("[data-sp-reward]").forEach((b) => b.addEventListener("click", () => {
+    const pts = Number(b.dataset.spReward);
+    const spReason = rec?.specialPerformance
+      ? `特别表现：${rec.specialPerformance.category || ""} ${rec.specialPerformance.subcategory || ""}`.trim()
+      : "今日特别表现";
+    const r = submitParentReward(role, { points: pts, reason: spReason, notify: role === "mother", cardPayload: { title: "特别表现奖励", content: spReason } });
+    if (!r.ok) return showToast(r.error, "error");
+    markSpecialPerformanceRewarded(rec, pts, role);
+    showToast(`已确认特别表现奖励 +${pts} 分`);
+    render();
+  }));
+  root.querySelectorAll("[data-sp-act]").forEach((b) => b.addEventListener("click", () => {
+    const act = b.dataset.spAct;
+    const ptsMap = { medal: 500, "praise-letter": 500, "warm-card": 200, "family-reward": 300 };
+    const honorMap = { medal: "奖章", "praise-letter": "表扬信", "warm-card": "鼓励贺卡", "family-reward": "亲子活动" };
+    const pts = ptsMap[act] || 200;
+    const spReason = formatSpecialPerformanceSummary(rec?.specialPerformance);
+    const r = submitParentReward(role, {
+      points: pts,
+      reason: spReason,
+      honorType: honorMap[act],
+      notify: true,
+      cardPayload: { title: honorMap[act], content: spReason, rewardType: honorMap[act] },
+    });
+    if (!r.ok) return showToast(r.error, "error");
+    markSpecialPerformanceRewarded(rec, pts, role);
+    showToast(`已发放 ${honorMap[act]} +${pts} 分`);
+    render();
+  }));
+}
+
 function renderCoachParent(root, parentRole) {
   const role = parentRole || getCurrentRole();
   if (role !== "father" && role !== "mother") { navigate("/coach"); return; }
@@ -1693,13 +1941,17 @@ function renderCoachParent(root, parentRole) {
     return;
   }
   const member = getMembers().find((m) => m.role === role);
+  const student = getStudentMember();
+  const todayRec = getTodayRecord();
   const wb = getParentWorkbenchMeta(role, member);
   const wallet = getParentWalletForViewer(user?.familyId, role, user?.role);
   const tip = RemindCard(wb?.tagline || "今天可以先看看孩子的状态，再给出合适的陪伴。");
 
   root.innerHTML = shell(wb?.title || member?.name || "家长工作台", wb?.subtitle || "Coach", "←", `
     ${renderParentWalletHeader(member, role, wallet)}
-    ${renderParentSummaryCard(getTodayRecord())}
+    ${renderSpecialPerformanceParentCard(todayRec, role)}
+    ${renderParentSummaryCard(todayRec)}
+    ${renderParentPointsPanel(role, todayRec)}
     ${tip}
     <div class="coach-actions">
       <button class="coach-btn" data-act="praise">👏 认可成绩</button>
@@ -1711,6 +1963,7 @@ function renderCoachParent(root, parentRole) {
 
   $("[data-back]", root).onclick = () => navigate("/coach");
   bindParentLedgerToggle(root, user?.familyId, user?.role);
+  bindParentPointsForms(root, role);
 
   const box = $("#coach-form", root);
   root.querySelectorAll(".coach-btn").forEach((btn) => btn.addEventListener("click", () => {
@@ -1721,11 +1974,19 @@ function renderCoachParent(root, parentRole) {
         <label class="field"><span>我看见你的一个进步</span><textarea name="progress" rows="2"></textarea></label>
         <label class="field"><span>今天最值得肯定的地方</span><textarea name="praise" rows="2"></textarea></label>
         <label class="field"><span>我想对你说的一句话</span><textarea name="word" rows="2"></textarea></label>
+        <label class="field"><span>奖励积分（可选）</span><input name="points" type="number" min="0" max="500" value="0" /></label>
         <button class="btn btn--primary btn--block">发送认可</button></form>`;
       $("#cf", box).onsubmit = (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        saveCoach(role, "praise", { progress: fd.get("progress"), praise: fd.get("praise"), word: fd.get("word") });
+        const payload = { progress: fd.get("progress"), praise: fd.get("praise"), word: fd.get("word") };
+        const pts = Number(fd.get("points"));
+        if (pts > 0) {
+          const r = submitParentReward(role, { points: pts, reason: payload.praise || payload.word || "认可成绩", notify: true, cardPayload: { title: "认可成绩", content: payload.word || payload.praise } });
+          if (!r.ok) return showToast(r.error, "error");
+        } else {
+          saveCoach(role, "praise", payload);
+        }
         showToast("认可已发送"); box.classList.add("hidden"); render();
       };
     } else if (act === "method") {
@@ -1733,11 +1994,19 @@ function renderCoachParent(root, parentRole) {
         <label class="field"><span>我看到你今天卡住的地方</span><textarea name="stuck" rows="2"></textarea></label>
         <label class="field"><span>我建议你试试这个方法</span><textarea name="method" rows="2"></textarea></label>
         <label class="field"><span>明天可以先做这一步</span><textarea name="step" rows="2"></textarea></label>
+        <label class="field"><span>方法奖励积分</span><input name="points" type="number" min="0" max="500" value="${role === "father" ? 50 : 0}" /></label>
         <button class="btn btn--primary btn--block">发送方法</button></form>`;
       $("#cf", box).onsubmit = (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        saveCoach(role, "method", { stuck: fd.get("stuck"), method: fd.get("method"), step: fd.get("step") });
+        const payload = { stuck: fd.get("stuck"), method: fd.get("method"), step: fd.get("step") };
+        const pts = Number(fd.get("points"));
+        if (pts > 0) {
+          const r = submitParentReward(role, { points: pts, reason: `给方法：${payload.method || payload.step}`, honorType: role === "father" ? "学习方法卡" : "", notify: true, cardPayload: { title: "给方法", content: payload.method } });
+          if (!r.ok) return showToast(r.error, "error");
+        } else {
+          saveCoach(role, "method", payload);
+        }
         showToast("方法建议已发送"); box.classList.add("hidden"); render();
       };
     } else if (act === "stars") {
@@ -1761,13 +2030,14 @@ function renderCoachParent(root, parentRole) {
         <label class="field"><span>贺卡标题</span><input name="title" placeholder="今天也很棒" /></label>
         <label class="field"><span>贺卡内容</span><textarea name="content" rows="3"></textarea></label>
         <label class="field"><span>贺卡风格</span><select name="style">${CARD_STYLES.map((s) => `<option>${s}</option>`).join("")}</select></label>
+        <label class="field"><span>奖励积分</span><input name="points" type="number" min="1" max="500" value="200" /></label>
         <label class="field"><span>奖励类型</span><select name="reward" id="reward-type">${REWARD_TYPES.map((s) => `<option>${s}</option>`).join("")}</select></label>
         <div id="reward-extra" class="hidden">
           <label class="field"><span>奖励名称</span><input name="rewardName" /></label>
           <label class="field"><span>奖励条件</span><input name="rewardCond" /></label>
           <label class="toggle"><input type="checkbox" name="fulfilled" /><span>是否已兑现</span></label>
         </div>
-        <button class="btn btn--sun btn--block">发送鼓励贺卡</button></form>`;
+        <button class="btn btn--sun btn--block">发送鼓励贺卡并发放积分</button></form>`;
       const rt = $("#reward-type", box);
       const extra = $("#reward-extra", box);
       rt?.addEventListener("change", () => extra.classList.toggle("hidden", rt.value !== "物质奖励"));
@@ -1780,22 +2050,25 @@ function renderCoachParent(root, parentRole) {
           rewardName: fd.get("rewardName"), rewardCond: fd.get("rewardCond"),
           fulfilled: fd.get("fulfilled") === "on",
         };
-        saveCoach(role, "card", payload);
-        const users = requireUsers();
-        const su = users.find((u) => u.memberId === student?.memberId);
-        if (su) {
-          sendHeartNotification({
-            toUserId: su.userId, fromRole: role, fromName: member?.name,
-            cardTitle: payload.title || "来自家人的鼓励",
-            cardText: payload.content,
-            cardStyle: payload.style,
+        const r = submitParentReward(role, {
+          points: fd.get("points"),
+          reason: payload.content || payload.title || "鼓励贺卡",
+          honorType: "鼓励贺卡",
+          notify: true,
+          cardPayload: {
+            title: payload.title,
+            content: payload.content,
+            style: payload.style,
             rewardType: payload.reward,
             rewardName: payload.rewardName,
-            rewardCondition: payload.rewardCond,
-            rewardFulfilled: payload.fulfilled,
-          });
-        }
-        showToast(`爱心已发送！孩子将看到：你收到${label}的爱心了`);
+            rewardCond: payload.rewardCond,
+            fulfilled: payload.fulfilled,
+          },
+        });
+        if (!r.ok) return showToast(r.error, "error");
+        saveCoach(role, "card", payload);
+        const fromLabel = role === "father" ? "爸爸" : "妈妈";
+        showToast(`爱心已发送！孩子将看到：你收到${fromLabel}的爱心了`);
         box.classList.add("hidden");
         render();
       };
@@ -2312,7 +2585,7 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=14`;
+  location.href = `${location.pathname}?v=15`;
 }
 
 function render() {
@@ -2372,7 +2645,7 @@ function bindGlobalHandlers() {
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.register("./service-worker.js?v=14");
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=15");
     if (reg.waiting && navigator.serviceWorker.controller) {
       reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }

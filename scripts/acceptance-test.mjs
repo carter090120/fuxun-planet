@@ -6,6 +6,7 @@ import { createRequire } from "module";
 import { pathToFileURL } from "url";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -38,6 +39,8 @@ const parentSummary = await import(pathToFileURL(path.join(root, "parentSummary.
 const growthAssets = await import(pathToFileURL(path.join(root, "growthAssets.js")).href);
 const pointLedger = await import(pathToFileURL(path.join(root, "pointLedger.js")).href);
 const marketKline = await import(pathToFileURL(path.join(root, "marketKline.js")).href);
+const growthMarket = await import(pathToFileURL(path.join(root, "growthMarket.js")).href);
+const memberRoles = await import(pathToFileURL(path.join(root, "memberRoles.js")).href);
 
 const results = { pass: [], fail: [] };
 const ok = (name, cond) => (cond ? results.pass.push(name) : results.fail.push(name));
@@ -71,6 +74,28 @@ ok("积分. 妈妈钱包 10000", motherW?.balance === 10000 && motherW?.initialB
 ok("积分. 孩子钱包 10000", studentW?.balance === 10000 && studentW?.initialBalance === 10000);
 ok("积分. 成长大盘 baseIndex 4000", gm?.baseIndex === 4000);
 ok("积分. 成长大盘 currentIndex", (gm?.currentIndex ?? gm?.index) >= 4000);
+
+// v15 演示大盘 5180
+const marketView = growthMarket.getGrowthMarket(fam.familyId, student.memberId);
+const demoKlines = (st.marketKlines || []).filter((k) => k.familyId === fam.familyId);
+const lastDemoBar = [...demoKlines].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
+ok("v15. 演示指数5180", marketView?.index === 5180 && marketView?.currentIndex === 5180);
+ok("v15. 演示等级进阶星球", marketView?.level === "进阶星球");
+ok("v15. 演示涨跌+320/6.6%", marketView?.todayChange === 320
+  && (marketView?.todayChangePct === 6.6 || marketView?.todayChangePercent === 6.6));
+ok("v15. 最后K线close5180", lastDemoBar?.close === 5180);
+ok("v15. 影响因素含特别表现", (marketView?.todayFactors || []).some((f) => String(f.label).includes("特别表现")));
+ok("v15. Ryan入口/coach/father", memberRoles.getMemberEntryPath({ role: "father" }) === "/coach/father");
+ok("v15. Sara入口/coach/mother", memberRoles.getMemberEntryPath({ role: "mother" }) === "/coach/mother");
+const demoRec = storage.getTodayRecord(fam.familyId);
+ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance === "yes"
+  && demoRec.specialPerformance.suggestedPoints === 200);
+const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
+const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
+ok("v15. SW含memberRoles与v15", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v15"));
+ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
+ok("v15. app含rewardStudent", appText.includes("rewardStudent"));
+
 storage.saveState(st);
 const reloaded = storage.loadState();
 ok("积分. 刷新后持久化",
@@ -289,6 +314,41 @@ auth.logout();
 ok("20. 退出后未登录", !auth.isLoggedIn());
 const login = auth.loginWithCredentials("demo@fuxun.local", "demo1234");
 ok("20. 重新登录", login.ok);
+
+// v15 家长奖励闭环
+storage.patchState((s) => {
+  const pw = growthAssets.getParentWalletByRole(s, fam.familyId, "father");
+  const mw = growthAssets.getParentWalletByRole(s, fam.familyId, "mother");
+  if (pw) pw.balance = 10000;
+  if (mw) mw.balance = 10000;
+});
+const fatherUserV15 = storage.loadState().users.find((u) => u.role === "father");
+const motherUserV15 = storage.loadState().users.find((u) => u.role === "mother");
+auth.loginAsUser(fatherUserV15.userId);
+const stBeforeFather = storage.loadState();
+const fBalV15 = growthAssets.getParentWalletByRole(stBeforeFather, fam.familyId, "father")?.balance;
+const sBalBefore = growthAssets.getStudentWalletFromState(stBeforeFather, fam.familyId, student.memberId)?.balance;
+const rFather100 = pointLedger.rewardStudent({ parentRole: "father", points: 100, reason: "Ryan工作台奖励测试" });
+const stFather = storage.loadState();
+ok("v15. Ryan奖励扣钱包", rFather100.ok
+  && growthAssets.getParentWalletByRole(stFather, fam.familyId, "father")?.balance === fBalV15 - 100
+  && growthAssets.getStudentWalletFromState(stFather, fam.familyId, student.memberId)?.balance === sBalBefore + 100);
+auth.loginAsUser(motherUserV15.userId);
+const mBalV15 = growthAssets.getParentWalletByRole(stFather, fam.familyId, "mother")?.balance;
+const rMother100 = pointLedger.rewardStudent({ parentRole: "mother", points: 100, reason: "Sara工作台奖励测试" });
+const stMother = storage.loadState();
+ok("v15. Sara奖励扣钱包", rMother100.ok
+  && growthAssets.getParentWalletByRole(stMother, fam.familyId, "mother")?.balance === mBalV15 - 100);
+ok("v15. 积分流水增加", (stMother.pointTransactions || []).length >= 2);
+const parentSummaryMod = await import(pathToFileURL(path.join(root, "parentSummary.js")).href);
+const psSp = parentSummaryMod.buildParentSummary(demoRec, {});
+ok("v15. parentSummary读特别表现", (psSp.tags?.strengths || "").includes("特别表现"));
+auth.loginAsUser(fatherUserV15.userId);
+const spReward = pointLedger.rewardStudent({
+  parentRole: "father", points: 50, reason: "特别表现确认奖励", relatedRecordId: demoRec?.recordId,
+});
+ok("v15. 特别表现转积分", spReward.ok
+  && (storage.loadState().pointTransactions || []).some((t) => String(t.reason).includes("特别表现")));
 
 // 训练恢复
 const restored = coach.restoreActiveSession(fam.familyId, mat.materialId);

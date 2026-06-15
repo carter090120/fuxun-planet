@@ -726,6 +726,11 @@ body.training-focus-mode--browser .train-focus__hint {
 .ledger-item p { margin: 6px 0 0; }
 .wallet-student { border-left: 4px solid var(--sun); }
 .wallet-admin { background: linear-gradient(165deg, #fff, #f0fdf4); }
+.radio-row { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.radio-row .toggle { margin: 0; }
+.special-perf-parent .action-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.parent-points form + form { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.parent-points h4 { margin: 0 0 10px; font-size: 0.9rem; }
 .honor-entry { text-align: center; }
 .coach-recent-list { display: flex; flex-direction: column; gap: 8px; }
 .coach-recent-item { display: flex; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: rgba(59,130,246,0.06); font-size: 0.84rem; }

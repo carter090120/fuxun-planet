@@ -29,30 +29,61 @@ function scoreToCandle(prevClose, score, dateKey) {
   return { dateKey, open, close, high, low, change: close - open };
 }
 
-export function seedGrowthMarket(familyId, studentId) {
-  const today = formatDateKey();
-  patchState((s) => {
-    ensureGrowthAssets(s);
-    if (!s.growthMarket || s.growthMarket.familyId !== familyId) {
-      s.growthMarket = {
-        familyId,
-        studentId,
-        baseIndex: GROWTH_BASE_INDEX,
-        currentIndex: GROWTH_BASE_INDEX,
-        index: GROWTH_BASE_INDEX,
-        disclaimer: GROWTH_DISCLAIMER,
-        investments: [{
-          goal: "SAT Reading 提升",
-          invested: 500,
-          current: 528,
-          history: [],
-        }],
-      };
-    }
+/** 演示账号固定 7 日 K 线（最后一天 close = 5180） */
+export const DEMO_7DAY_BARS = [
+  { open: 4000, high: 4140, low: 3980, close: 4100 },
+  { open: 4100, high: 4250, low: 4080, close: 4210 },
+  { open: 4210, high: 4360, low: 4180, close: 4320 },
+  { open: 4320, high: 4550, low: 4300, close: 4480 },
+  { open: 4480, high: 4700, low: 4450, close: 4630 },
+  { open: 4630, high: 4920, low: 4600, close: 4860 },
+  { open: 4860, high: 5220, low: 4820, close: 5180 },
+];
+
+export const DEMO_TODAY_FACTORS = [
+  { label: "今日打卡完成率", value: 80, sign: 1 },
+  { label: "复训清零", value: 100, sign: 1 },
+  { label: "爸爸方法奖励", value: 300, sign: 1 },
+  { label: "妈妈鼓励卡", value: 200, sign: 1 },
+  { label: "特别表现奖励", value: 500, sign: 1 },
+  { label: "压力正常，适合正向激励", value: "—", isText: true, sign: 1 },
+];
+
+function buildDemoKlineRecords(familyId, studentId, today) {
+  return DEMO_7DAY_BARS.map((bar, i) => {
+    const date = offsetDateKey(today, i - 6);
+    const prevClose = i > 0 ? DEMO_7DAY_BARS[i - 1].close : bar.open;
+    const change = bar.close - (i > 0 ? prevClose : bar.open);
+    const open = i > 0 ? DEMO_7DAY_BARS[i - 1].close : bar.open;
+    const changePercent = open ? Math.round((change / open) * 10000) / 100 : 0;
+    return {
+      date,
+      familyId,
+      studentId,
+      open,
+      high: bar.high,
+      low: bar.low,
+      close: bar.close,
+      change,
+      changePercent,
+      impactFactors: i === 6 ? DEMO_TODAY_FACTORS : [],
+      summary: i === 6 ? "演示大盘 · 进阶星球" : `演示第 ${i + 1} 天`,
+      updatedAt: new Date().toISOString(),
+    };
   });
+}
 
-  rebuildMarketKlines(7, { familyId, studentId });
-
+export function seedDemoGrowthMarket(familyId, studentId) {
+  const today = formatDateKey();
+  const bars = buildDemoKlineRecords(familyId, studentId, today);
+  const history = bars.map((k) => ({
+    dateKey: k.date,
+    open: k.open,
+    high: k.high,
+    low: k.low,
+    close: k.close,
+    change: k.change,
+  }));
   const investHistory = [];
   let inv = 500;
   [0, 4, 8, 12, 18, 24, 28].forEach((chg, i) => {
@@ -60,18 +91,41 @@ export function seedGrowthMarket(familyId, studentId) {
   });
 
   patchState((s) => {
+    ensureGrowthAssets(s);
+    s.marketKlines = (s.marketKlines || []).filter((k) => k.familyId !== familyId);
+    s.marketKlines.push(...bars);
     const fatherBal = s.parentWallets.find((w) => w.familyId === familyId && w.parentRole === "father")?.balance
       ?? PARENT_INITIAL_BALANCE;
     const motherBal = s.parentWallets.find((w) => w.familyId === familyId && w.parentRole === "mother")?.balance
       ?? PARENT_INITIAL_BALANCE;
-    if (s.growthMarket?.familyId === familyId) {
-      s.growthMarket.wallets = { father: fatherBal, mother: motherBal };
-      s.growthMarket.disclaimer = GROWTH_DISCLAIMER;
-      if (s.growthMarket.investments?.[0]) {
-        s.growthMarket.investments[0].history = investHistory;
-      }
-    }
+    s.growthMarket = {
+      familyId,
+      studentId,
+      baseIndex: GROWTH_BASE_INDEX,
+      currentIndex: 5180,
+      index: 5180,
+      todayChange: 320,
+      todayChangePercent: 6.6,
+      todayChangePct: 6.6,
+      level: "进阶星球",
+      demoTodayFactors: DEMO_TODAY_FACTORS,
+      todayFactors: DEMO_TODAY_FACTORS,
+      isDemoSeed: true,
+      disclaimer: GROWTH_DISCLAIMER,
+      history,
+      wallets: { father: fatherBal, mother: motherBal },
+      investments: [{
+        goal: "SAT Reading 提升",
+        invested: 500,
+        current: 528,
+        history: investHistory,
+      }],
+    };
   });
+}
+
+export function seedGrowthMarket(familyId, studentId) {
+  seedDemoGrowthMarket(familyId, studentId);
 }
 
 export function buildGrowthMarketFromActivity(familyId, studentId) {
@@ -144,10 +198,20 @@ export function getGrowthMarket(familyId, studentId) {
       const latest = klines[klines.length - 1];
       gm.currentIndex = latest.close;
       gm.index = latest.close;
-      gm.todayChange = latest.change;
-      gm.todayChangePercent = latest.changePercent;
-      gm.todayChangePct = latest.changePercent;
-      gm.level = getLevelName(latest.close);
+      if (gm.isDemoSeed && latest.close === 5180 && !(state.pointTransactions || []).some(
+        (t) => t.familyId === familyId && t.affectsMarket && (t.createdAt || "").slice(0, 10) === formatDateKey(),
+      )) {
+        gm.todayChange = 320;
+        gm.todayChangePercent = 6.6;
+        gm.todayChangePct = 6.6;
+        gm.level = "进阶星球";
+        gm.todayFactors = gm.demoTodayFactors || DEMO_TODAY_FACTORS;
+      } else {
+        gm.todayChange = latest.change;
+        gm.todayChangePercent = latest.changePercent;
+        gm.todayChangePct = latest.changePercent;
+        gm.level = getLevelName(latest.close);
+      }
     }
     const fatherBal = state.parentWallets?.find((w) => w.familyId === familyId && w.parentRole === "father")?.balance;
     const motherBal = state.parentWallets?.find((w) => w.familyId === familyId && w.parentRole === "mother")?.balance;
