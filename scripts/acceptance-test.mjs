@@ -103,7 +103,7 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-ok("v15. SW含memberRoles与v16d3", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16d3"));
+ok("v15. SW含memberRoles与v16d", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16d"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -513,6 +513,11 @@ ok("v16d3. Ryan引导", appText.includes("PAGE_GUIDES.father") && appText.includ
 ok("v16d3. Sara引导", appText.includes("PAGE_GUIDES.mother") && appText.includes("PAGE_GUIDES.motherCompanion"));
 ok("v16d3. 荣誉室引导", appText.includes("PAGE_GUIDES.honor") && version.PAGE_GUIDES.honor("Daniel").includes("成长资产中心"));
 ok("v16d3. K线免责声明", growthMarket.GROWTH_DISCLAIMER.includes("不是真实投资") && appText.includes("renderKlineDisclaimer"));
+const manifestText = fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8");
+ok("v16d4. App版本v16-D", version.APP_VERSION === "v16-D" && appText.includes('APP_VERSION = "v16-D"') || version.APP_VERSION === "v16-D");
+ok("v16d4. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16d" && swText.includes('const CACHE_NAME = "fuxun-planet-v16d"'));
+ok("v16d4. SW含demoMode", swText.includes("demoMode.js"));
+ok("v16d4. manifest启动参数", manifestText.includes('"start_url": "./?v=16d"'));
 
 console.log("\n=== 复训星球验收结果 ===");
 console.log(`通过: ${results.pass.length}`);
