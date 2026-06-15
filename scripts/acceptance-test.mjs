@@ -7,6 +7,7 @@ import { pathToFileURL } from "url";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import { execSync } from "child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -106,7 +107,7 @@ const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const chartsText = fs.readFileSync(path.join(root, "charts.js"), "utf8");
-ok("v15. SW含memberRoles与v16e6", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e6"));
+ok("v15. SW含memberRoles与v16e61", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e61"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -517,10 +518,10 @@ ok("v16d3. Sara引导", appText.includes("PAGE_GUIDES.mother") && appText.includ
 ok("v16d3. 荣誉室引导", appText.includes("PAGE_GUIDES.honor") && version.PAGE_GUIDES.honor("Daniel").includes("成长资产中心"));
 ok("v16d3. K线免责声明", growthMarket.GROWTH_DISCLAIMER.includes("不是真实投资") && appText.includes("renderKlineDisclaimer"));
 const manifestText = fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8");
-ok("v16e6. App版本v16-E6", version.APP_VERSION === "v16-E6");
-ok("v16e6. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e6" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e6"'));
+ok("v16e61. App版本v16-E6.1", version.APP_VERSION === "v16-E6.1");
+ok("v16e61. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e61" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e61"'));
 ok("v16e. SW含aiReferenceAnswer", swText.includes("aiReferenceAnswer.js"));
-ok("v16e6. manifest启动参数", manifestText.includes('"start_url": "./?v=16e6"'));
+ok("v16e61. manifest启动参数", manifestText.includes('"start_url": "./?v=16e61"'));
 ok("v16e6. 演示K线15天", growthMarket.DEMO_KLINE_DATA.length === 15);
 ok("v16e6. 红绿K线实现", chartsText.includes("mountGrowthKlineChart") && chartsText.includes("#ef4444") && chartsText.includes("#16a34a"));
 ok("v16e6. 无空状态判断", appText.includes("hasGrowthMarketData") && appText.includes("ensureGrowthMarketData"));
@@ -528,6 +529,32 @@ ok("v16e6. 三处大盘渲染", appText.includes('canvasId: "honor-market-kline"
 ok("v16e6. 演示自动补种", appText.includes("ensureGrowthMarketData") && growthMarket.isDemoGrowthFamily(rfam.familyId));
 const demoCandles = growthMarket.getGrowthCandles(marketView);
 ok("v16e6. 演示有K线数据", demoCandles.length >= 15 && demoCandles.at(-1)?.close === 5180);
+const growthMarketText = fs.readFileSync(path.join(root, "growthMarket.js"), "utf8");
+ok("v16e61. getLevelName导出声明", /export function getLevelName/.test(growthMarketText) || /export\s*\{[^}]*getLevelName/.test(growthMarketText));
+ok("v16e61. getLevelName可调用", typeof growthMarket.getLevelName === "function" && growthMarket.getLevelName(5180) === "进阶星球");
+const jsFiles = fs.readdirSync(root).filter((f) => f.endsWith(".js"));
+let nodeCheckOk = true;
+for (const f of jsFiles) {
+  try {
+    execSync(`node --check "${path.join(root, f)}"`, { stdio: "pipe" });
+  } catch {
+    nodeCheckOk = false;
+    break;
+  }
+}
+ok("v16e61. node --check全部JS", nodeCheckOk);
+let growthMarketImportOk = false;
+let appImportOk = false;
+try {
+  const gmMod = await import(pathToFileURL(path.join(root, "growthMarket.js")).href);
+  growthMarketImportOk = typeof gmMod.getLevelName === "function";
+} catch { /* */ }
+try {
+  const appMod = await import(pathToFileURL(path.join(root, "app.js")).href);
+  appImportOk = typeof appMod.initApp === "function";
+} catch { /* */ }
+ok("v16e61. 动态import growthMarket", growthMarketImportOk);
+ok("v16e61. 动态import app", appImportOk);
 ok("v16e5. 无AI建议独立卡", !appText.includes("AI 给爸爸的投资建议") && !appText.includes("AI 给妈妈的陪伴建议"));
 ok("v16e5. 关键结果置顶", appText.includes("今日关键结果") && appText.includes("workbench-digest"));
 ok("v16e5. AI轻提示", appText.includes("今日最值得爸爸看见") && appText.includes("今日最值得妈妈看见"));

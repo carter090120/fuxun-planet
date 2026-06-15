@@ -1,9 +1,9 @@
-/** 复训星球 v16-E6 版本信息（成长大盘红绿 K 线） */
-export const APP_VERSION = "v16-E6";
+/** 复训星球 v16-E6.1 版本信息（growthMarket getLevelName 导出修复） */
+export const APP_VERSION = "v16-E6.1";
 export const APP_NAME = "复训星球";
 export const APP_TAGLINE = "错题复训清零，家庭陪伴成长。";
-export const SW_CACHE_ID = "fuxun-planet-v16e6";
-export const DEMO_CACHE_BUST = "16e6";
+export const SW_CACHE_ID = "fuxun-planet-v16e61";
+export const DEMO_CACHE_BUST = "16e61";
 
 export const MODULE_SLOGANS = {
   home: APP_TAGLINE,

@@ -11,6 +11,10 @@ const DEMO_ACCOUNT_EMAIL = "demo@fuxun.local";
 
 export const GROWTH_DISCLAIMER = "成长大盘是学习成长积分模拟，不是真实投资。它用来记录努力、复训、奖励和成长趋势。";
 
+export function getLevelName(index = GROWTH_BASE_INDEX) {
+  return getGrowthIndexLevel(index);
+}
+
 export const DEMO_KLINE_DAYS = 15;
 
 /** 演示账号固定 15 日 K 线（最后一天 close = 5180） */
