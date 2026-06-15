@@ -892,7 +892,22 @@ body.training-focus-mode--browser .train-focus__hint {
 .wallet-workbench__head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
 .wallet-workbench__head h2 { margin: 0; font-size: 1.1rem; }
 .wallet-workbench__avatar { width: 52px; height: 52px; font-size: 1.8rem; }
-.page--workbench { padding-top: 8px; }
+.page--workbench { padding-top: 8px; display: flex; flex-direction: column; gap: 12px; }
+.workbench-digest__ai-hint {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--navy);
+}
+.workbench-form-slot__empty { margin: 0 0 8px; }
+.workbench-form-panel.hidden { display: none; }
+.workbench-wallet h3,
+.workbench-form-slot h3 { margin: 0 0 10px; font-size: 1rem; color: var(--navy); }
+.workbench-ledger { margin-bottom: 8px; }
 .parent-workbench-hero { border-left: 4px solid var(--blue); margin-bottom: 12px; }
 .parent-workbench-hero--mother { border-left-color: #ec4899; }
 .parent-workbench-hero__back { margin: 0 0 10px; padding: 4px 10px; font-size: 0.78rem; }

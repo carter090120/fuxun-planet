@@ -1,9 +1,9 @@
-/** 复训星球 v16-E4 版本信息（Ryan 场景库 + 工具箱联动 + 特别表现卡片修复） */
-export const APP_VERSION = "v16-E4";
+/** 复训星球 v16-E5 版本信息（父母工作台卡片顺序优化） */
+export const APP_VERSION = "v16-E5";
 export const APP_NAME = "复训星球";
 export const APP_TAGLINE = "错题复训清零，家庭陪伴成长。";
-export const SW_CACHE_ID = "fuxun-planet-v16e4";
-export const DEMO_CACHE_BUST = "16e4";
+export const SW_CACHE_ID = "fuxun-planet-v16e5";
+export const DEMO_CACHE_BUST = "16e5";
 
 export const MODULE_SLOGANS = {
   home: APP_TAGLINE,
