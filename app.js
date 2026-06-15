@@ -38,6 +38,12 @@ import {
   getParentWalletForViewer, getStudentWalletForViewer, getPointTransactionsForViewer,
   getWalletSummary, rewardStudent, deductStudent,
 } from "./pointLedger.js";
+import { getHonorItems } from "./honorItems.js";
+import {
+  FATHER_REWARD_SCENARIOS, FATHER_MEDAL_TYPES, FATHER_REWARD_POINTS,
+  buildFatherChildSnapshot, buildFatherAiSuggestion, getFatherTodayWalletStats,
+  submitFatherReward, canFatherAfford,
+} from "./fatherWorkbench.js";
 import {
   specialPerformanceHTML, readSpecialPerformanceFromForm, formatSpecialPerformanceSummary,
   SPECIAL_CATEGORIES, getSuggestedPoints,
@@ -1564,6 +1570,28 @@ function renderCoachWalletHint() {
 const LEDGER_TYPE_LABELS = { reward: "奖励", deduct: "扣分提醒" };
 const LEDGER_FROM_LABELS = { father: "爸爸", mother: "妈妈" };
 
+const HONOR_ITEM_ICONS = {
+  card: "💌",
+  "praise-letter": "📝",
+  medal: "🏅",
+  "method-card": "💡",
+  "father-pact": "🤝",
+};
+
+function renderHonorItemsHTML(items) {
+  if (!items?.length) return EmptyCard("还没有荣誉物品。爸爸妈妈发放贺卡、表扬信或奖章后会显示在这里。", "🏆");
+  return `<div class="honor-items">${items.map((h) =>
+    `<article class="honor-item honor-item--${h.itemType}">
+      <span class="honor-item__icon">${HONOR_ITEM_ICONS[h.itemType] || "🏆"}</span>
+      <div>
+        <strong>${h.fromRole === "father" ? "爸爸" : "妈妈"} · ${h.title || h.medalType || h.itemType}</strong>
+        <p>${h.content || h.scenario || ""}</p>
+        <span class="hint">${h.dateKey} · +${h.points} 分${h.medalType ? ` · ${h.medalType}` : ""}</span>
+      </div>
+    </article>`
+  ).join("")}</div>`;
+}
+
 function renderPointLedgerHTML(transactions, emptyMsg = "暂无积分流水记录。") {
   if (!transactions?.length) return EmptyCard(emptyMsg, "📒");
   return `<div class="ledger-list">${transactions.map((t) =>
@@ -1836,6 +1864,10 @@ function renderCoachHonor(root) {
     : EmptyCard("暂无投资走势", "🎯")}
     </section>
     <section class="card-block">
+      <h3>荣誉物品</h3>
+      ${renderHonorItemsHTML(getHonorItems(user?.familyId, { studentId: student?.memberId, limit: 12 }))}
+    </section>
+    <section class="card-block">
       <h3>来自爸爸妈妈的奖励记录</h3>
       ${renderPointLedgerHTML(rewardTxs, "还没有来自爸爸妈妈的积分奖励记录。")}
     </section>
@@ -2042,6 +2074,293 @@ function bindParentPointsForms(root, role) {
   }));
 }
 
+function renderFatherWalletHero(member, wallet, wb, familyId) {
+  const w = wallet ? getFatherTodayWalletStats(familyId, wallet) : null;
+  const sysRoles = getMemberSystemRoles(member).join(" / ");
+  return `<section class="parent-workbench-hero parent-workbench-hero--father card-block father-wallet">
+    <button type="button" class="parent-workbench-hero__back btn btn--ghost btn--sm" data-go="/coach">返回家庭总览</button>
+    <div class="parent-workbench-hero__head">
+      ${renderAvatar(member, "parent-workbench-hero__avatar")}
+      <div>
+        <h2 class="parent-workbench-hero__title">${wb?.title || member?.name || ""}</h2>
+        <p class="parent-workbench-hero__en">${wb?.subtitle || "Growth Investor"}</p>
+        <p class="member-role">爸爸 · ${sysRoles}</p>
+        <p class="hint father-mission">${wb?.tagline || ""}</p>
+      </div>
+    </div>
+    ${wallet ? `<div class="father-wallet__stats parent-workbench-hero__stats">
+      <div class="stat"><span>当前可用优培积分</span><strong>${w.balance}</strong></div>
+      <div class="stat"><span>今日已发积分</span><strong>${w.todaySent}</strong></div>
+      <div class="stat"><span>今日剩余可发</span><strong>${w.todayRemaining}</strong></div>
+      <div class="stat"><span>累计奖励积分</span><strong>${w.totalRewarded}</strong></div>
+      <div class="stat"><span>今日贺卡</span><strong>${w.cards}</strong></div>
+      <div class="stat"><span>今日表扬信</span><strong>${w.praiseLetters}</strong></div>
+      <div class="stat"><span>今日奖章</span><strong>${w.medals}</strong></div>
+      <div class="stat"><span>今日扣分提醒</span><strong>${w.deductReminders}</strong></div>
+    </div>
+    <p class="hint">贺卡 / 表扬信 / 奖章默认各消耗 500 积分，余额不足时无法发送。</p>
+    <button type="button" class="btn btn--ghost btn--block btn--sm" data-toggle-ledger>进入积分记录</button>
+    <div id="parent-ledger" class="ledger-panel hidden">
+      <h4>积分记录</h4>
+      ${renderPointLedgerHTML([], "你还没有积分流水记录。")}
+    </div>` : `<p class="hint">钱包余额仅在工作台与孩子荣誉室中可见。</p>`}
+  </section>`;
+}
+
+function renderFatherChildDigest(snapshot, student) {
+  const s = snapshot;
+  return `<section class="card-block father-digest">
+    <h3>${student?.name || "孩子"} 今日关键结果</h3>
+    <p class="hint">成长投资官只读摘要，不在此填写孩子打卡。</p>
+    <div class="father-digest__stats stat-grid">
+      <div class="stat"><span>今日总分</span><strong>${s.totalScore != null ? formatScore(s.totalScore) : "—"}</strong></div>
+      <div class="stat"><span>今日完成率</span><strong>${s.completionRate != null ? `${s.completionRate}%` : "—"}</strong></div>
+      <div class="stat"><span>今日错题数</span><strong>${s.mistakeCount}</strong></div>
+      <div class="stat"><span>剩余错题数</span><strong>${s.remainingMistakes}</strong></div>
+      <div class="stat"><span>复训是否清零</span><strong>${s.retrainCleared ? "已清零" : "未清零"}</strong></div>
+      <div class="stat"><span>训练正确率</span><strong>${s.trainingAccuracy != null ? `${s.trainingAccuracy}%` : "—"}</strong></div>
+      <div class="stat"><span>连续打卡天数</span><strong>${s.checkinStreak} 天</strong></div>
+    </div>
+    <article class="father-digest__block">
+      <h4>今日特别表现</h4>
+      <p>${String(s.specialPerformanceText || "—").replace(/\n/g, "<br>")}</p>
+    </article>
+    <article class="father-digest__block">
+      <h4>今日最值得投资的成长行为</h4>
+      <p>${pickFatherInvestLine(s)}</p>
+    </article>
+  </section>`;
+}
+
+function pickFatherInvestLine(snapshot) {
+  const ai = buildFatherAiSuggestion(snapshot);
+  return ai.highlight || "—";
+}
+
+function renderFatherAiCard(ai) {
+  return `<section class="card-block father-ai">
+    <h3>AI 给爸爸的投资建议</h3>
+    <p><strong>今日最值得投资的一点</strong><br>${ai.highlight}</p>
+    <div class="father-ai__meta">
+      <span>建议方式：${ai.rewardMethod}</span>
+      <span>建议积分：${ai.suggestedPoints}</span>
+      <span>${ai.noDeduct ? "不建议扣分" : "可视情况提醒"}</span>
+    </div>
+    <p class="hint"><strong>给爸爸：</strong>${ai.fatherMessage}</p>
+    <p class="hint"><strong>给孩子：</strong>${ai.childMessage}</p>
+    <button type="button" class="btn btn--sun btn--sm" data-father-apply-ai>采纳建议并预填</button>
+  </section>`;
+}
+
+function renderFatherScenarios(selected = "", category = "learning") {
+  const cats = Object.entries(FATHER_REWARD_SCENARIOS);
+  const tabs = cats.map(([key, c]) =>
+    `<button type="button" class="father-scene-tab ${key === category ? "is-active" : ""}" data-scene-cat="${key}">${c.label}</button>`
+  ).join("");
+  const active = FATHER_REWARD_SCENARIOS[category] || FATHER_REWARD_SCENARIOS.learning;
+  const chips = active.items.map((item) =>
+    `<button type="button" class="father-scene-chip ${selected === item ? "is-selected" : ""}" data-scene="${item}">${item}</button>`
+  ).join("");
+  return `<section class="card-block father-scenes">
+    <h3>爸爸奖励场景</h3>
+    <p class="hint">选择今天最值得正式认可的成长瞬间，会写入奖励记录。</p>
+    <input type="hidden" id="father-scenario" value="${selected}" />
+    <input type="hidden" id="father-scenario-cat" value="${category}" />
+    <div class="father-scene-tabs">${tabs}</div>
+    <div class="father-scene-chips" id="father-scene-chips">${chips}</div>
+  </section>`;
+}
+
+function renderFatherToolbox(wallet) {
+  const tools = [
+    { id: "card", icon: "💌", name: "发爸爸贺卡", pts: FATHER_REWARD_POINTS.card, desc: "轻量鼓励、完成任务、复训进步" },
+    { id: "praise-letter", icon: "📝", name: "写爸爸表扬信", pts: FATHER_REWARD_POINTS["praise-letter"], desc: "特别表现、高光时刻、坚持突破" },
+    { id: "medal", icon: "🏅", name: "发爸爸奖章", pts: FATHER_REWARD_POINTS.medal, desc: "错题清零、自驱学习、家庭责任" },
+    { id: "method-card", icon: "💡", name: "发方法卡", pts: FATHER_REWARD_POINTS["method-card"], desc: "错题未清零、需要下一步建议" },
+    { id: "father-pact", icon: "🤝", name: "发父子约定", pts: FATHER_REWARD_POINTS["father-pact"], desc: "设定明天或本周目标" },
+    { id: "deduct", icon: "⚠️", name: "扣分提醒", pts: "≤200", desc: "必须填写原因、建议与明天怎么做" },
+  ];
+  return `<section class="card-block father-toolbox">
+    <h3>爸爸奖励工具箱</h3>
+    <div class="father-tool-grid">${tools.map((t) => {
+      const afford = t.id === "deduct" || canFatherAfford(t.id, wallet);
+      return `<button type="button" class="father-tool-btn ${afford ? "" : "is-disabled"}" data-father-tool="${t.id}" ${afford ? "" : "disabled"}>
+        <span class="father-tool-btn__icon">${t.icon}</span>
+        <strong>${t.name}</strong>
+        <span class="hint">${t.desc}</span>
+        <span class="father-tool-btn__pts">${t.id === "deduct" ? "上限 200" : `默认 ${t.pts} 分`}</span>
+      </button>`;
+    }).join("")}</div>
+    <div id="father-tool-form" class="father-tool-form hidden"></div>
+  </section>`;
+}
+
+function renderFatherHonorLink() {
+  return `<section class="card-block honor-entry">
+    <h3>🏆 孩子荣誉室</h3>
+    <p class="hint">爸爸发放的贺卡、表扬信与奖章会同步出现在荣誉室。</p>
+    <button type="button" class="btn btn--sun btn--block" data-go="/coach-honor">进入荣誉室</button>
+  </section>`;
+}
+
+function bindFatherWorkbench(root, ctx) {
+  const { member, student, user, todayRec, ai } = ctx;
+  let selectedScenario = ai.scenario || "";
+  let selectedCategory = "learning";
+
+  root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
+  bindParentLedgerToggle(root, user?.familyId, user?.role);
+
+  const scenarioInput = $("#father-scenario", root);
+  const categoryInput = $("#father-scenario-cat", root);
+  const chipsHost = $("#father-scene-chips", root);
+  const formBox = $("#father-tool-form", root);
+
+  const paintChips = (cat) => {
+    const c = FATHER_REWARD_SCENARIOS[cat];
+    if (!chipsHost || !c) return;
+    chipsHost.innerHTML = c.items.map((item) =>
+      `<button type="button" class="father-scene-chip ${selectedScenario === item ? "is-selected" : ""}" data-scene="${item}">${item}</button>`
+    ).join("");
+    chipsHost.querySelectorAll("[data-scene]").forEach((b) => b.addEventListener("click", () => {
+      selectedScenario = b.dataset.scene;
+      if (scenarioInput) scenarioInput.value = selectedScenario;
+      paintChips(selectedCategory);
+    }));
+  };
+
+  root.querySelectorAll("[data-scene-cat]").forEach((b) => b.addEventListener("click", () => {
+    selectedCategory = b.dataset.sceneCat;
+    if (categoryInput) categoryInput.value = selectedCategory;
+    root.querySelectorAll("[data-scene-cat]").forEach((t) => t.classList.toggle("is-active", t.dataset.sceneCat === selectedCategory));
+    paintChips(selectedCategory);
+  }));
+  paintChips(selectedCategory);
+
+  const notifyChild = (payload) => {
+    notifyStudentFromParent("father", member, student, payload);
+  };
+
+  const submitReward = (tool, fd) => {
+    const scenario = fd.get("scenario") || selectedScenario || scenarioInput?.value || "";
+    const r = submitFatherReward({
+      tool,
+      scenario,
+      scenarioCategory: categoryInput?.value || selectedCategory,
+      medalType: fd.get("medalType") || "",
+      title: fd.get("title") || "",
+      content: fd.get("content") || fd.get("reason") || "",
+      points: fd.get("points"),
+      relatedRecordId: todayRec?.recordId,
+      notifyStudent: true,
+      member,
+      student,
+      familyId: user?.familyId,
+    });
+    if (!r.ok) return showToast(r.error, "error");
+    notifyChild({
+      title: r.displayTitle,
+      content: fd.get("content") || scenario,
+      style: tool === "card" ? "阳光鼓励" : "深情支持",
+      rewardType: tool === "medal" ? (fd.get("medalType") || "奖章") : (tool === "praise-letter" ? "表扬信" : "精神鼓励"),
+    });
+    showToast(r.message || "奖励已发放，成长大盘已更新");
+    formBox?.classList.add("hidden");
+    render();
+  };
+
+  root.querySelectorAll("[data-father-tool]").forEach((btn) => btn.addEventListener("click", () => {
+    const tool = btn.dataset.fatherTool;
+    formBox?.classList.remove("hidden");
+    const scen = selectedScenario || ai.scenario || "";
+    if (tool === "deduct") {
+      formBox.innerHTML = `<form class="form" id="father-deduct-f">
+        <h4>扣分提醒</h4>
+        <label class="field"><span>扣分分值</span><input name="points" type="number" min="1" max="200" value="20" /></label>
+        <label class="field"><span>扣分原因</span><input name="reason" required /></label>
+        <label class="field"><span>改进建议</span><textarea name="advice" rows="2" required></textarea></label>
+        <label class="field"><span>明天怎么做</span><textarea name="tomorrow" rows="2" required></textarea></label>
+        <button class="btn btn--ghost btn--block">发送扣分提醒</button></form>`;
+      $("#father-deduct-f", formBox).onsubmit = (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const advice = `${fd.get("advice")}\n明天怎么做：${fd.get("tomorrow")}`;
+        const dr = deductStudent({
+          parentRole: "father",
+          points: fd.get("points"),
+          reason: fd.get("reason"),
+          advice,
+          relatedRecordId: todayRec?.recordId,
+        });
+        if (!dr.ok) return showToast(dr.error, "error");
+        saveCoach("father", "deduct", { points: fd.get("points"), reason: fd.get("reason"), advice });
+        notifyChild({ title: "爸爸的提醒", content: fd.get("reason"), rewardType: "改进提醒" });
+        showToast(dr.message || "扣分提醒已记录");
+        formBox.classList.add("hidden");
+        render();
+      };
+      return;
+    }
+    const pts = FATHER_REWARD_POINTS[tool];
+    const medalOpts = tool === "medal"
+      ? `<label class="field"><span>奖章类型</span><select name="medalType" required>
+        <option value="">请选择</option>
+        ${FATHER_MEDAL_TYPES.map((m) => `<option ${ai.medalType === m ? "selected" : ""}>${m}</option>`).join("")}
+      </select></label>`
+      : "";
+    formBox.innerHTML = `<form class="form" id="father-reward-f">
+      <h4>${btn.querySelector("strong")?.textContent || "发放奖励"}</h4>
+      <label class="field"><span>奖励场景</span><input name="scenario" value="${scen}" placeholder="从上方选择或填写" /></label>
+      ${medalOpts}
+      <label class="field"><span>标题</span><input name="title" placeholder="${tool === "medal" ? "奖章名称" : "贺卡/信标题"}" /></label>
+      <label class="field"><span>内容</span><textarea name="content" rows="3" placeholder="写下爸爸想正式记录的话">${ai.childMessage || ""}</textarea></label>
+      <label class="field"><span>奖励积分</span><input name="points" type="number" min="1" max="500" value="${pts}" /></label>
+      <button class="btn btn--primary btn--block">确认发放（扣 Ryan 钱包 ${pts} 分）</button>
+    </form>`;
+    $("#father-reward-f", formBox).onsubmit = (e) => {
+      e.preventDefault();
+      submitReward(tool, new FormData(e.target));
+    };
+  }));
+
+  $("[data-father-apply-ai]", root)?.addEventListener("click", () => {
+    selectedScenario = ai.scenario || "";
+    if (scenarioInput) scenarioInput.value = selectedScenario;
+    if (ai.scenario) {
+      for (const [key, cat] of Object.entries(FATHER_REWARD_SCENARIOS)) {
+        if (cat.items.includes(ai.scenario)) {
+          selectedCategory = key;
+          if (categoryInput) categoryInput.value = key;
+          root.querySelectorAll("[data-scene-cat]").forEach((t) => t.classList.toggle("is-active", t.dataset.sceneCat === key));
+          break;
+        }
+      }
+    }
+    paintChips(selectedCategory);
+    const toolMap = { 贺卡: "card", 表扬信: "praise-letter", 奖章: "medal", 方法卡: "method-card" };
+    const tool = toolMap[ai.rewardMethod] || "card";
+    $(`[data-father-tool="${tool}"]`, root)?.click();
+    showToast("已根据 AI 建议预填奖励表单");
+  });
+}
+
+function renderFatherWorkbench(root, ctx) {
+  const { member, student, user, wallet, wb, todayRec } = ctx;
+  const snapshot = buildFatherChildSnapshot(user.familyId, student?.memberId);
+  const ai = buildFatherAiSuggestion(snapshot);
+
+  root.innerHTML = `<div class="page page--workbench page--father">
+    ${renderFatherWalletHero(member, wallet, wb, user.familyId)}
+    ${renderFatherChildDigest(snapshot, student)}
+    ${renderFatherAiCard(ai)}
+    ${renderFatherScenarios(ai.scenario || "", "learning")}
+    ${renderFatherToolbox(wallet)}
+    ${renderFatherHonorLink()}
+  </div>`;
+
+  bindFatherWorkbench(root, { member, student, user, todayRec, ai, wallet });
+}
+
 function renderCoachParent(root, parentRole) {
   const role = parentRole || getCurrentRole();
   if (role !== "father" && role !== "mother") { navigate("/coach"); return; }
@@ -2055,6 +2374,12 @@ function renderCoachParent(root, parentRole) {
   const todayRec = getTodayRecord();
   const wb = getParentWorkbenchMeta(role, member);
   const wallet = getParentWalletForViewer(user?.familyId, role, user?.role);
+
+  if (role === "father") {
+    renderFatherWorkbench(root, { member, student, user, wallet, wb, todayRec });
+    return;
+  }
+
   const tip = RemindCard(wb?.tagline || "今天可以先看看孩子的状态，再给出合适的陪伴。");
 
   root.innerHTML = `<div class="page page--workbench">
@@ -2695,7 +3020,7 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=16`;
+  location.href = `${location.pathname}?v=16b`;
 }
 
 function render() {

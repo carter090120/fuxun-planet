@@ -93,6 +93,7 @@ const DEFAULT_STATE = {
   parentWallets: [],
   studentWallets: [],
   pointTransactions: [],
+  honorItems: [],
   marketKlines: [],
   growthMarket: null,
   privacy: {
@@ -139,6 +140,7 @@ export function loadState() {
       parentWallets: p.parentWallets || [],
       studentWallets: p.studentWallets || [],
       pointTransactions: p.pointTransactions || [],
+      honorItems: p.honorItems || [],
       marketKlines: p.marketKlines || [],
       growthMarket: p.growthMarket ?? null,
     };
@@ -375,6 +377,7 @@ export function importJson(text) {
     parentWallets: incoming.parentWallets || [],
     studentWallets: incoming.studentWallets || [],
     pointTransactions: incoming.pointTransactions || [],
+    honorItems: incoming.honorItems || [],
     marketKlines: incoming.marketKlines || [],
     growthMarket: incoming.growthMarket ?? null,
   };

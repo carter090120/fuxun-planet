@@ -735,6 +735,43 @@ body.training-focus-mode--browser .train-focus__hint {
 .parent-workbench-hero__stats .stat strong { font-size: 0.95rem; }
 .parent-workbench-hero--mother .parent-workbench-hero__stats .stat { background: rgba(236,72,153,0.06); }
 .student-hub__tasks { font-size: 0.82rem; line-height: 1.35; }
+.father-mission { margin: 6px 0 0; font-size: 0.76rem; line-height: 1.4; }
+.father-wallet__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.father-digest__stats { margin-bottom: 10px; }
+.father-digest__block { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.father-digest__block h4 { margin: 0 0 6px; font-size: 0.86rem; }
+.father-digest__block p { margin: 0; font-size: 0.84rem; line-height: 1.45; }
+.father-ai__meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; font-size: 0.78rem; font-weight: 700; color: var(--blue-deep); }
+.father-scene-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.father-scene-tab {
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px;
+  background: #fff; font: inherit; font-size: 0.72rem; font-weight: 700; cursor: pointer;
+}
+.father-scene-tab.is-active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.father-scene-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.father-scene-chip {
+  border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px;
+  background: #f8fbff; font: inherit; font-size: 0.72rem; text-align: left; cursor: pointer;
+}
+.father-scene-chip.is-selected { border-color: var(--blue); background: rgba(59,130,246,0.12); font-weight: 700; }
+.father-tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.father-tool-btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  min-height: 92px; padding: 10px; border: 1px solid var(--line); border-radius: 14px;
+  background: #fff; font: inherit; text-align: left; cursor: pointer;
+}
+.father-tool-btn.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.father-tool-btn__icon { font-size: 1.2rem; }
+.father-tool-btn__pts { font-size: 0.68rem; font-weight: 800; color: var(--blue); }
+.father-tool-form { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.father-tool-form.hidden { display: none; }
+.honor-items { display: flex; flex-direction: column; gap: 8px; }
+.honor-item {
+  display: flex; gap: 10px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(250,204,21,0.12); border: 1px solid rgba(250,204,21,0.25);
+}
+.honor-item__icon { font-size: 1.4rem; flex-shrink: 0; }
+.honor-item p { margin: 4px 0 0; font-size: 0.82rem; }
 .ledger-panel { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .ledger-panel.hidden { display: none; }
 .ledger-list { display: flex; flex-direction: column; gap: 8px; }

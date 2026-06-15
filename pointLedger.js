@@ -79,6 +79,12 @@ export function createPointTransaction(state, data) {
     reason: data.reason || "",
     advice: data.advice || "",
     relatedRecordId: data.relatedRecordId || null,
+    honorType: data.honorType || null,
+    honorItemType: data.honorItemType || null,
+    scenario: data.scenario || null,
+    scenarioCategory: data.scenarioCategory || null,
+    medalType: data.medalType || null,
+    title: data.title || null,
     affectsMarket: !!data.affectsMarket,
     affectsInvestment: !!data.affectsInvestment,
     createdAt: data.createdAt || nowIso(),
@@ -197,6 +203,80 @@ export function rewardStudent({
       points: pts.points,
       reason,
       relatedRecordId,
+      affectsMarket: true,
+      affectsInvestment: false,
+    });
+    syncGrowthMarketWallets(s, actor.familyId);
+  });
+
+  const kline = upsertMarketKline(formatDateKey(), { familyId: actor.familyId, studentId: student.memberId });
+
+  return {
+    ok: true,
+    message: MSG_REWARD_SUCCESS(student.name, pts.points),
+    transaction,
+    kline: kline.kline,
+    summary: getWalletSummary(actor.familyId),
+  };
+}
+
+/** 带荣誉类型的正式奖励（贺卡 / 表扬信 / 奖章等） */
+export function rewardStudentWithHonor({
+  parentRole, points, reason = "", relatedRecordId = null, user: actorUser,
+  honorType, honorItemType, scenario, scenarioCategory, medalType, title,
+}) {
+  const actor = resolveActor(parentRole, { user: actorUser });
+  if (!actor.ok) return actor;
+
+  const pts = normalizePoints(points, MAX_REWARD_POINTS);
+  if (!pts.ok) return pts;
+
+  const state = loadState();
+  const student = getStudentMember(actor.familyId);
+  if (!student) return { ok: false, error: "未找到孩子成员" };
+
+  ensureGrowthAssets(state);
+  const parentWallet = getParentWalletByRole(state, actor.familyId, parentRole);
+  const access = assertParentWalletAccess(actor.userRole, parentWallet);
+  if (!access.ok) return access;
+
+  if (parentWallet.balance < pts.points) {
+    return { ok: false, error: MSG_INSUFFICIENT_WALLET };
+  }
+
+  const studentWallet = getStudentWalletFromState(state, actor.familyId, student.memberId);
+  if (!studentWallet) return { ok: false, error: "孩子钱包不存在" };
+
+  const txType = honorType ? "honor" : "reward";
+
+  let transaction;
+  patchState((s) => {
+    ensureGrowthAssets(s);
+    const pw = getParentWalletByRole(s, actor.familyId, parentRole);
+    const sw = getStudentWalletFromState(s, actor.familyId, student.memberId);
+    pw.balance -= pts.points;
+    pw.totalRewarded = (pw.totalRewarded || 0) + pts.points;
+    pw.todayRewarded = (pw.todayRewarded || 0) + pts.points;
+    pw.updatedAt = nowIso();
+
+    sw.totalEarned = (sw.totalEarned || 0) + pts.points;
+    touchStudentAssets(sw, pts.points);
+
+    transaction = createPointTransaction(s, {
+      familyId: actor.familyId,
+      studentId: student.memberId,
+      fromUserId: actor.user.userId,
+      fromRole: parentRole,
+      type: txType,
+      points: pts.points,
+      reason,
+      relatedRecordId,
+      honorType: honorType || null,
+      honorItemType: honorItemType || null,
+      scenario: scenario || null,
+      scenarioCategory: scenarioCategory || null,
+      medalType: medalType || null,
+      title: title || honorType || null,
       affectsMarket: true,
       affectsInvestment: false,
     });

@@ -41,6 +41,8 @@ const pointLedger = await import(pathToFileURL(path.join(root, "pointLedger.js")
 const marketKline = await import(pathToFileURL(path.join(root, "marketKline.js")).href);
 const growthMarket = await import(pathToFileURL(path.join(root, "growthMarket.js")).href);
 const memberRoles = await import(pathToFileURL(path.join(root, "memberRoles.js")).href);
+const fatherWorkbench = await import(pathToFileURL(path.join(root, "fatherWorkbench.js")).href);
+const honorItems = await import(pathToFileURL(path.join(root, "honorItems.js")).href);
 
 const results = { pass: [], fail: [] };
 const ok = (name, cond) => (cond ? results.pass.push(name) : results.fail.push(name));
@@ -97,10 +99,16 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
   && demoRec.specialPerformance.suggestedPoints === 200);
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
-ok("v15. SW含memberRoles与v16", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16"));
+ok("v15. SW含memberRoles与v16b", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16b"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
+ok("v16b. 爸爸贺卡默认500", fatherWorkbench.FATHER_REWARD_POINTS.card === 500);
+ok("v16b. 爸爸表扬信默认500", fatherWorkbench.FATHER_REWARD_POINTS["praise-letter"] === 500);
+ok("v16b. 爸爸奖章默认500", fatherWorkbench.FATHER_REWARD_POINTS.medal === 500);
+ok("v16b. 三类奖励场景", Object.keys(fatherWorkbench.FATHER_REWARD_SCENARIOS).length === 3);
+ok("v16b. SW含fatherWorkbench", swText.includes("fatherWorkbench.js") && swText.includes("fuxun-planet-v16b"));
+ok("v16b. app含renderFatherWorkbench", appText.includes("renderFatherWorkbench") && appText.includes("爸爸奖励工具箱"));
 ok("v15. app含rewardStudent", appText.includes("rewardStudent"));
 
 storage.saveState(st);
@@ -356,6 +364,60 @@ const spReward = pointLedger.rewardStudent({
 });
 ok("v15. 特别表现转积分", spReward.ok
   && (storage.loadState().pointTransactions || []).some((t) => String(t.reason).includes("特别表现")));
+
+// v16-B Ryan 投资官奖励闭环
+auth.loginAsUser(fatherUserV15.userId);
+const stV16b = storage.loadState();
+const fBalBeforeCard = growthAssets.getParentWalletByRole(stV16b, fam.familyId, "father")?.balance;
+const sBalBeforeCard = growthAssets.getStudentWalletFromState(stV16b, fam.familyId, student.memberId)?.balance;
+const fatherMember = members.find((m) => m.role === "father");
+const cardReward = fatherWorkbench.submitFatherReward({
+  tool: "card",
+  scenario: "错题清零",
+  scenarioCategory: "learning",
+  title: "Ryan测试贺卡",
+  content: "今天复训进步很棒",
+  points: 500,
+  member: fatherMember,
+  student,
+  familyId: fam.familyId,
+  relatedRecordId: demoRec?.recordId,
+});
+const stAfterCard = storage.loadState();
+ok("v16b. 贺卡扣爸爸钱包500", cardReward.ok
+  && growthAssets.getParentWalletByRole(stAfterCard, fam.familyId, "father")?.balance === fBalBeforeCard - 500);
+ok("v16b. 贺卡增孩子积分500", cardReward.ok
+  && growthAssets.getStudentWalletFromState(stAfterCard, fam.familyId, student.memberId)?.balance === sBalBeforeCard + 500);
+ok("v16b. 贺卡生成honor流水", cardReward.ok
+  && (stAfterCard.pointTransactions || []).some((t) => t.type === "honor" && t.honorType === "爸爸贺卡" && t.points === 500));
+ok("v16b. 贺卡生成honorItem", cardReward.ok
+  && honorItems.getHonorItems(fam.familyId, { itemType: "card" }).some((h) => h.title === "Ryan测试贺卡"));
+const brokeCard = fatherWorkbench.submitFatherReward({
+  tool: "medal",
+  scenario: "坚持突破",
+  medalType: "坚持突破星",
+  points: 500,
+  member: fatherMember,
+  student,
+  familyId: fam.familyId,
+});
+storage.patchState((s) => {
+  const pw = growthAssets.getParentWalletByRole(s, fam.familyId, "father");
+  if (pw) pw.balance = 400;
+});
+const brokeMedal = fatherWorkbench.submitFatherReward({
+  tool: "medal",
+  scenario: "测试不足",
+  medalType: "坚持突破星",
+  points: 500,
+  member: fatherMember,
+  student,
+  familyId: fam.familyId,
+});
+ok("v16b. 积分不足不能发奖章", !brokeMedal.ok);
+const snap = fatherWorkbench.buildFatherChildSnapshot(fam.familyId, student.memberId);
+const ai = fatherWorkbench.buildFatherAiSuggestion(snap);
+ok("v16b. 爸爸AI建议", !!ai.highlight && !!ai.rewardMethod && ai.suggestedPoints >= 100);
 
 // 训练恢复
 const restored = coach.restoreActiveSession(fam.familyId, mat.materialId);
