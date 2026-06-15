@@ -1,9 +1,9 @@
-/** 复训星球 v16-E 版本信息 */
-export const APP_VERSION = "v16-E";
+/** 复训星球 v16-E1 版本信息（工作台进入 hotfix） */
+export const APP_VERSION = "v16-E1";
 export const APP_NAME = "复训星球";
 export const APP_TAGLINE = "错题复训清零，家庭陪伴成长。";
-export const SW_CACHE_ID = "fuxun-planet-v16e";
-export const DEMO_CACHE_BUST = "16e";
+export const SW_CACHE_ID = "fuxun-planet-v16e1";
+export const DEMO_CACHE_BUST = "16e1";
 
 export const MODULE_SLOGANS = {
   home: APP_TAGLINE,

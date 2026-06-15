@@ -18,7 +18,7 @@ import {
   getFamily, getMembers, enterAsMember,
 } from "./auth.js";
 import {
-  isDemoAccount, resetDemoData, regenerateDemoGrowthMarket, clearDemoTodayOperations,
+  isDemoAccount, isDemoFamily, resetDemoData, regenerateDemoGrowthMarket, clearDemoTodayOperations,
   DEMO_RESET_TOAST,
 } from "./demoMode.js";
 import {
@@ -72,6 +72,7 @@ import {
   SYSTEM_ROLE_OPTIONS, DEFAULT_PARENT_SYSTEM_ROLES, FAMILY_ROLE_LABELS,
   formatMemberRoleLine, getMemberEntryPath, getMemberEntryLabel,
   getParentWorkbenchMeta, getMemberSystemRoles,
+  resolveCoachMember, canAccessCoachWorkbench, getCoachWorkbenchWalletViewerRole, getCoachEntryPath,
 } from "./memberRoles.js";
 import { generatePoster, sharePoster, downloadPoster } from "./poster.js";
 import { APP_VERSION, APP_TAGLINE, MODULE_SLOGANS, PAGE_GUIDES, SW_CACHE_ID, EMPTY_HINTS } from "./version.js";
@@ -385,15 +386,18 @@ function renderHome(root) {
     }
   });
   root.querySelectorAll("[data-enter]").forEach((b) => b.addEventListener("click", () => {
-    const member = getMember(b.dataset.enter);
+    const role = b.dataset.role;
+    if (role === "father" || role === "mother") {
+      enterAsMember(role);
+      navigate(getCoachEntryPath(role));
+      return;
+    }
+    const member = getMember(b.dataset.enter) || resolveCoachMember(role)?.member;
     if (!member) {
       showToast("未找到该家庭成员", "error");
       return;
     }
-    if (!enterAsMember(b.dataset.enter)) {
-      showToast("无法进入工作台，请检查账号绑定", "error");
-      return;
-    }
+    enterAsMember(member.memberId);
     navigate(getMemberEntryPath(member));
   }));
   root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
@@ -2066,11 +2070,7 @@ function renderCoach(root) {
   root.innerHTML = shell("家庭优培总览", "Family Coaching Overview", "", body, MODULE_SLOGANS.coach);
   root.querySelectorAll("[data-enter-coach]").forEach((b) => b.addEventListener("click", () => {
     const targetRole = b.dataset.enterCoach;
-    const cur = getCurrentRole();
-    if (cur !== "student" && cur !== "admin" && cur !== targetRole) {
-      showToast("请进入自己的工作台使用优培积分", "info");
-      return;
-    }
+    if (targetRole === "father" || targetRole === "mother") enterAsMember(targetRole);
     navigate(`/coach/${targetRole}`);
   }));
   root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
@@ -3074,12 +3074,11 @@ function renderMotherWorkbench(root, ctx) {
   bindMotherWorkbench(root, { member, student, user, todayRec, ai, wallet });
 }
 
-function renderWorkbenchError(root, detail = "") {
+function renderWorkbenchError(root, detail = "", heading = "无法进入工作台") {
   root.innerHTML = shell("工作台", "Workbench", "←", `
     <div class="card-block workbench-error">
-      <h3>未找到对应工作台</h3>
-      <p>请返回首页重新进入。</p>
-      ${detail ? `<p class="hint">${detail}</p>` : ""}
+      <h3>${heading}</h3>
+      <p>${detail || "请返回首页重新进入。"}</p>
       <button class="btn btn--primary btn--block" type="button" data-go="/home">返回首页</button>
     </div>`);
   root.querySelector("[data-go]")?.addEventListener("click", () => navigate("/home"));
@@ -3087,25 +3086,54 @@ function renderWorkbenchError(root, detail = "") {
 }
 
 function renderCoachParent(root, parentRole) {
-  const role = parentRole || getCurrentRole();
-  if (role !== "father" && role !== "mother") {
-    renderWorkbenchError(root, "工作台角色无效。");
+  if (!isLoggedIn()) {
+    renderWorkbenchError(root, "请先登录后再进入工作台。", "需要登录");
     return;
   }
+
   const user = getCurrentUser();
-  if (user?.role !== "admin" && user?.role !== role) {
-    renderWorkbenchError(root, `当前登录身份无法访问${role === "father" ? " Ryan" : " Sara"} 工作台。`);
+  const family = getFamily();
+  if (!family) {
+    renderWorkbenchError(root, "当前没有家庭数据，请先注册或加入家庭。", "没有家庭数据");
     return;
   }
-  const member = getMembers().find((m) => m.role === role);
-  if (!member) {
-    renderWorkbenchError(root, "家庭中未找到该家长成员。");
+
+  const role = parentRole === "mother" ? "mother" : parentRole === "father" ? "father" : null;
+  if (!role) {
+    renderWorkbenchError(root, "工作台地址无效。", "路由无效");
     return;
   }
+
+  let resolved = resolveCoachMember(role, family.familyId);
+  if (!resolved?.member && isDemoFamily(family.familyId)) {
+    seedDemo();
+    resolved = resolveCoachMember(role, family.familyId);
+  }
+
+  if (!resolved?.member) {
+    const msg = role === "father"
+      ? "未找到爸爸成员，请先到「我的资料」补充爸爸资料。"
+      : "未找到妈妈成员，请先到「我的资料」补充妈妈资料。";
+    renderWorkbenchError(root, msg, role === "father" ? "未找到爸爸工作台" : "未找到妈妈工作台");
+    return;
+  }
+
+  const accessOpts = {
+    isDemoAccount: isDemoAccount(user),
+    isDemoFamily: isDemoFamily(family.familyId),
+    isFamilyOwner: user.role === "father" || user.role === "mother" || user.role === "admin",
+  };
+  if (!canAccessCoachWorkbench(user, role, accessOpts)) {
+    renderWorkbenchError(root, "当前身份无权访问此工作台。", "无权访问");
+    return;
+  }
+
+  const { member } = resolved;
   const student = getStudentMember();
   const todayRec = getTodayRecord();
   const wb = getParentWorkbenchMeta(role, member);
-  const wallet = getParentWalletForViewer(user?.familyId, role, user?.role);
+  const walletViewer = getCoachWorkbenchWalletViewerRole(user, role, accessOpts);
+  const wallet = getParentWalletForViewer(user?.familyId, role, walletViewer);
 
   if (role === "father") {
     renderFatherWorkbench(root, { member, student, user, wallet, wb, todayRec });
@@ -3683,7 +3711,7 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=16e`;
+  location.href = `${location.pathname}?v=16e1`;
 }
 
 function render() {
@@ -3744,7 +3772,7 @@ function bindGlobalHandlers() {
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.register("./service-worker.js?v=16e");
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=16e1");
     if (reg.waiting && navigator.serviceWorker.controller) {
       reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }

@@ -105,7 +105,7 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-ok("v15. SW含memberRoles与v16e", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e"));
+ok("v15. SW含memberRoles与v16e1", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e1"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -516,16 +516,25 @@ ok("v16d3. Sara引导", appText.includes("PAGE_GUIDES.mother") && appText.includ
 ok("v16d3. 荣誉室引导", appText.includes("PAGE_GUIDES.honor") && version.PAGE_GUIDES.honor("Daniel").includes("成长资产中心"));
 ok("v16d3. K线免责声明", growthMarket.GROWTH_DISCLAIMER.includes("不是真实投资") && appText.includes("renderKlineDisclaimer"));
 const manifestText = fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8");
-ok("v16e. App版本v16-E", version.APP_VERSION === "v16-E");
-ok("v16e. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e"'));
+ok("v16e1. App版本v16-E1", version.APP_VERSION === "v16-E1");
+ok("v16e1. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e1" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e1"'));
 ok("v16e. SW含aiReferenceAnswer", swText.includes("aiReferenceAnswer.js"));
-ok("v16e. manifest启动参数", manifestText.includes('"start_url": "./?v=16e"'));
+ok("v16e1. manifest启动参数", manifestText.includes('"start_url": "./?v=16e1"'));
 ok("v16e. 特别表现卡片布局", spPerf.specialPerformanceHTML({ specialPerformance: { hasPerformance: "yes" } }).includes("special-choice-card"));
 ok("v16e. 特别表现CSS", cssText.includes(".special-choice-group") && cssText.includes(".special-choice-card.is-selected"));
 ok("v16e. 打卡sticky修复", cssText.includes(".page--checkin .checkin-sticky") && appText.includes("checkin-body"));
 ok("v16e. 横屏训练分层", appText.includes("train-topbar") && appText.includes("train-progress-row") && cssText.includes(".train-topbar"));
-ok("v16e. 工作台错误卡", appText.includes("renderWorkbenchError") && appText.includes("未找到对应工作台"));
-ok("v16e. 路由不静默回coach", !appText.includes('navigate("/coach"); return;') || appText.includes("renderWorkbenchError"));
+ok("v16e1. resolveCoachMember", appText.includes("resolveCoachMember") && memberRoles.resolveCoachMember("father")?.member?.name === "Ryan");
+ok("v16e1. Sara成员解析", memberRoles.resolveCoachMember("mother")?.member?.name === "Sara");
+ok("v16e1. 演示账号可进工作台", memberRoles.canAccessCoachWorkbench(
+  { role: "student", userId: "u1" },
+  "father",
+  { isDemoAccount: true },
+));
+ok("v16e1. 孩子可查看工作台", memberRoles.canAccessCoachWorkbench({ role: "student" }, "mother"));
+ok("v16e1. 首页按角色进入", appText.includes('enterAsMember(role)') && appText.includes("getCoachEntryPath"));
+ok("v16e1. 工作台错误文案", appText.includes("未找到爸爸成员") && appText.includes("未找到妈妈成员"));
+ok("v16e1. 钱包按工作台角色", memberRoles.getCoachWorkbenchWalletViewerRole({ role: "student" }, "father", { isDemoAccount: true }) === "father");
 ok("v16e. AI参考答案模块", appText.includes("aiReferenceAnswer.js") && appText.includes("generateAiReferenceAnswer"));
 const sampleQ = {
   questionId: "q-test",

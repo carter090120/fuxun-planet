@@ -3,7 +3,7 @@ import {
   getFamily, getMembers, getUser, getStudentMember,
 } from "./storage.js";
 import { ensureGrowthAssets } from "./growthAssets.js";
-import { DEFAULT_PARENT_SYSTEM_ROLES } from "./memberRoles.js";
+import { DEFAULT_PARENT_SYSTEM_ROLES, resolveCoachMember } from "./memberRoles.js";
 
 export { getFamily, getMembers, getStudentMember };
 
@@ -33,11 +33,22 @@ export function getCurrentRole() {
 
 export function isLoggedIn() { return !!getCurrentUser(); }
 
-export function enterAsMember(memberId) {
+export function enterAsMember(memberIdOrRole) {
   const state = loadState();
-  const member = state.members.find((m) => m.memberId === memberId);
+  const fid = state.session?.familyId;
+  let member = null;
+
+  if (memberIdOrRole === "father" || memberIdOrRole === "mother" || memberIdOrRole === "student") {
+    member = resolveCoachMember(memberIdOrRole, fid)?.member
+      ?? state.members.find((m) => m.familyId === fid && m.role === memberIdOrRole)
+      ?? null;
+  }
+  if (!member) {
+    member = state.members.find((m) => m.memberId === memberIdOrRole) ?? null;
+  }
   if (!member) return false;
-  const user = state.users.find((u) => u.memberId === memberId);
+
+  const user = state.users.find((u) => u.memberId === member.memberId);
   if (!user) return false;
   setSession({ userId: user.userId, familyId: member.familyId, role: member.role });
   user.lastLoginAt = nowIso();
