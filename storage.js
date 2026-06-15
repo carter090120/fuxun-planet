@@ -1,6 +1,8 @@
 /**
  * 复训星球 — localStorage 数据层（预留 API 替换）
  */
+import { ensureGrowthAssets } from "./growthAssets.js";
+
 export const STORAGE_KEY = "fuxun-planet-v1";
 
 export const COACHING_STYLES = [
@@ -88,6 +90,8 @@ const DEFAULT_STATE = {
   dailyRecords: [],
   coachingActions: [],
   notifications: [],
+  parentWallets: [],
+  studentWallets: [],
   growthMarket: null,
   privacy: {
     showScores: true, showLocation: true, showSelfie: true,
@@ -130,9 +134,13 @@ export function loadState() {
       dailyRecords: p.dailyRecords || [],
       coachingActions: p.coachingActions || [],
       notifications: migrateNotifications(p.notifications),
+      parentWallets: p.parentWallets || [],
+      studentWallets: p.studentWallets || [],
       growthMarket: p.growthMarket ?? null,
     };
-    return merged;
+    const { state: ensured, changed } = ensureGrowthAssets(merged);
+    if (changed) saveState(ensured);
+    return ensured;
   } catch { return structuredClone(DEFAULT_STATE); }
 }
 
@@ -354,13 +362,18 @@ export function exportJson() { return JSON.stringify(loadState(), null, 2); }
 export function importJson(text) {
   const current = loadState();
   const incoming = JSON.parse(text);
-  saveState({
+  const merged = {
     ...structuredClone(DEFAULT_STATE),
     ...incoming,
     session: current.session,
     privacy: { ...DEFAULT_STATE.privacy, ...(incoming.privacy || {}) },
     notifications: migrateNotifications(incoming.notifications),
-  });
+    parentWallets: incoming.parentWallets || [],
+    studentWallets: incoming.studentWallets || [],
+    growthMarket: incoming.growthMarket ?? null,
+  };
+  const { state: ensured } = ensureGrowthAssets(merged);
+  saveState(ensured);
 }
 export function exportCsv() {
   const recs = getDailyRecords();

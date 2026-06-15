@@ -2,6 +2,7 @@ import {
   loadState, saveState, patchState, uid, genCode, nowIso,
   getFamily, getMembers, getUser, getStudentMember,
 } from "./storage.js";
+import { ensureGrowthAssets } from "./growthAssets.js";
 
 export { getFamily, getMembers, getStudentMember };
 
@@ -142,6 +143,7 @@ export function registerFamily(data) {
   state.families.push(family);
   state.members.push(father, mother, student);
   state.users.push(...users);
+  ensureGrowthAssets(state);
   saveState(state);
   setSession({ userId: users[2].userId, familyId, role: "student" });
   return { ok: true, family, codes: { invite: family.inviteCode, parent: family.parentJoinCode, student: family.studentJoinCode } };

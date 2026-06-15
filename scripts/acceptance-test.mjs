@@ -35,6 +35,7 @@ const qp = await import(pathToFileURL(path.join(root, "questionParser.js")).href
 const coach = await import(pathToFileURL(path.join(root, "trainingCoach.js")).href);
 const notes = await import(pathToFileURL(path.join(root, "notifications.js")).href);
 const parentSummary = await import(pathToFileURL(path.join(root, "parentSummary.js")).href);
+const growthAssets = await import(pathToFileURL(path.join(root, "growthAssets.js")).href);
 
 const results = { pass: [], fail: [] };
 const ok = (name, cond) => (cond ? results.pass.push(name) : results.fail.push(name));
@@ -56,6 +57,27 @@ const mat = mats[0];
 const mistakes = storage.getMistakes(fam.familyId).filter((m) => m.materialId === mat.materialId);
 const session = coach.restoreActiveSession(fam.familyId, mat.materialId);
 ok("8. 训练会话", session?.pool?.length === 3);
+
+// 积分系统 v14-1A
+const st = storage.loadState();
+const fatherW = growthAssets.getParentWalletByRole(st, fam.familyId, "father");
+const motherW = growthAssets.getParentWalletByRole(st, fam.familyId, "mother");
+const studentW = growthAssets.getStudentWalletFromState(st, fam.familyId, student.memberId);
+const gm = st.growthMarket;
+ok("积分. 爸爸钱包 10000", fatherW?.balance === 10000 && fatherW?.initialBalance === 10000);
+ok("积分. 妈妈钱包 10000", motherW?.balance === 10000 && motherW?.initialBalance === 10000);
+ok("积分. 孩子钱包 10000", studentW?.balance === 10000 && studentW?.initialBalance === 10000);
+ok("积分. 成长大盘 baseIndex 4000", gm?.baseIndex === 4000);
+ok("积分. 成长大盘 currentIndex", (gm?.currentIndex ?? gm?.index) >= 4000);
+storage.saveState(st);
+const reloaded = storage.loadState();
+ok("积分. 刷新后持久化",
+  growthAssets.getParentWalletByRole(reloaded, fam.familyId, "father")?.balance === 10000
+  && growthAssets.getStudentWalletFromState(reloaded, fam.familyId, student.memberId)?.balance === 10000
+  && reloaded.growthMarket?.baseIndex === 4000);
+ok("积分. 权限-孩子不能自加分", !growthAssets.canStudentSelfCredit("student"));
+ok("积分. 权限-爸爸只能用爸爸钱包", growthAssets.canUseParentWallet("father", "father")
+  && !growthAssets.canUseParentWallet("father", "mother"));
 
 // 9-10 训练清零（答对全部错题）
 let after = session;
@@ -108,6 +130,23 @@ ok("17. 孩子未读爱心", notes.getUnreadCount() === 1);
 const exported = storage.exportJson();
 storage.importJson(exported);
 ok("19. 导出导入", storage.getFamily()?.familyName === "Daniel 的复训星球" && auth.isLoggedIn());
+
+// 新注册家庭积分
+const reg2 = auth.registerFamily({
+  contact: "v14test@fuxun.local",
+  password: "test5678",
+  familyName: "测试家庭",
+  childName: "小明",
+});
+const fam2 = reg2.family;
+const stu2 = auth.getStudentMember(fam2?.familyId);
+const stNew = storage.loadState();
+ok("积分. 新注册家庭三方钱包", reg2.ok
+  && growthAssets.getParentWalletByRole(stNew, fam2.familyId, "father")?.balance === 10000
+  && growthAssets.getParentWalletByRole(stNew, fam2.familyId, "mother")?.balance === 10000
+  && growthAssets.getStudentWalletFromState(stNew, fam2.familyId, stu2?.memberId)?.balance === 10000
+  && stNew.growthMarket?.baseIndex === 4000);
+auth.loginAsUser(stuUser.userId);
 
 // 20 登出登录
 auth.logout();

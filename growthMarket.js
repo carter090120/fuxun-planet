@@ -2,15 +2,12 @@
  * 优培成长大盘 — 成长积分模拟（非真实投资）
  */
 import { loadState, patchState, formatDateKey, getDailyRecords, getCoachingActions, getTrainingSessions } from "./storage.js";
+import {
+  ensureGrowthAssets, getGrowthIndexLevel, GROWTH_BASE_INDEX,
+  PARENT_INITIAL_BALANCE,
+} from "./growthAssets.js";
 
 export const GROWTH_DISCLAIMER = "成长积分模拟，非真实投资。";
-
-const LEVELS = [
-  { min: 0, name: "启航星球" },
-  { min: 800, name: "进阶星球" },
-  { min: 1200, name: "闪耀星球" },
-  { min: 1600, name: "冠军星球" },
-];
 
 function offsetDateKey(baseKey, days) {
   const d = new Date(`${baseKey}T12:00:00`);
@@ -19,10 +16,7 @@ function offsetDateKey(baseKey, days) {
 }
 
 export function getLevelName(index) {
-  const v = Number(index) || 0;
-  let name = LEVELS[0].name;
-  LEVELS.forEach((lv) => { if (v >= lv.min) name = lv.name; });
-  return name;
+  return getGrowthIndexLevel(index);
 }
 
 function scoreToCandle(prevClose, score, dateKey) {
@@ -37,8 +31,8 @@ function scoreToCandle(prevClose, score, dateKey) {
 export function seedGrowthMarket(familyId, studentId) {
   const today = formatDateKey();
   const history = [];
-  let base = 1100;
-  const demoChanges = [-18, 24, 12, -8, 30, 22, 36];
+  let base = GROWTH_BASE_INDEX;
+  const demoChanges = [-8, 12, 6, -4, 10, 8, 14];
   for (let i = 6; i >= 0; i--) {
     const dk = offsetDateKey(today, -i);
     const change = demoChanges[6 - i];
@@ -49,27 +43,36 @@ export function seedGrowthMarket(familyId, studentId) {
     history.push({ dateKey: dk, open, close, high, low, change });
     base = close;
   }
-  const index = history[history.length - 1].close;
-  const prev = history[history.length - 2]?.close || index;
-  const todayChange = index - prev;
-  const todayChangePct = prev ? Math.round((todayChange / prev) * 1000) / 10 : 0;
+  const currentIndex = history[history.length - 1].close;
+  const prev = history[history.length - 2]?.close || currentIndex;
+  const todayChange = currentIndex - prev;
+  const todayChangePercent = prev ? Math.round((todayChange / prev) * 1000) / 10 : 0;
 
   const investHistory = [];
-  let inv = 200;
+  let inv = 500;
   [0, 4, 8, 12, 18, 24, 28].forEach((chg, i) => {
     investHistory.push({ dateKey: offsetDateKey(today, i - 6), value: inv + chg });
   });
 
   patchState((s) => {
+    ensureGrowthAssets(s);
+    const fatherBal = s.parentWallets.find((w) => w.familyId === familyId && w.parentRole === "father")?.balance
+      ?? PARENT_INITIAL_BALANCE;
+    const motherBal = s.parentWallets.find((w) => w.familyId === familyId && w.parentRole === "mother")?.balance
+      ?? PARENT_INITIAL_BALANCE;
     s.growthMarket = {
       familyId,
       studentId,
-      index,
+      baseIndex: GROWTH_BASE_INDEX,
+      currentIndex,
       todayChange,
-      todayChangePct,
-      level: getLevelName(index),
+      todayChangePercent,
+      index: currentIndex,
+      todayChangePct: todayChangePercent,
+      level: getLevelName(currentIndex),
+      updatedAt: new Date().toISOString(),
       history,
-      wallets: { father: 320, mother: 280 },
+      wallets: { father: fatherBal, mother: motherBal },
       todayFactors: [
         { label: "爸爸奖励", value: 80, sign: 1 },
         { label: "妈妈奖励", value: 50, sign: 1 },
@@ -78,8 +81,8 @@ export function seedGrowthMarket(familyId, studentId) {
       ],
       investments: [{
         goal: "SAT Reading 提升",
-        invested: 200,
-        current: 228,
+        invested: 500,
+        current: 528,
         history: investHistory,
       }],
       disclaimer: GROWTH_DISCLAIMER,
@@ -141,12 +144,28 @@ export function buildGrowthMarketFromActivity(familyId, studentId) {
 }
 
 export function getGrowthMarket(familyId, studentId) {
-  const gm = loadState().growthMarket;
-  if (gm?.familyId === familyId && gm.history?.length) return gm;
+  const state = loadState();
+  const gm = state.growthMarket;
+  if (gm?.familyId === familyId) {
+    const fatherBal = state.parentWallets?.find((w) => w.familyId === familyId && w.parentRole === "father")?.balance;
+    const motherBal = state.parentWallets?.find((w) => w.familyId === familyId && w.parentRole === "mother")?.balance;
+    if (fatherBal != null || motherBal != null) {
+      gm.wallets = {
+        father: fatherBal ?? gm.wallets?.father ?? PARENT_INITIAL_BALANCE,
+        mother: motherBal ?? gm.wallets?.mother ?? PARENT_INITIAL_BALANCE,
+      };
+    }
+    if (gm.currentIndex != null && gm.index == null) gm.index = gm.currentIndex;
+    if (gm.todayChangePercent != null && gm.todayChangePct == null) gm.todayChangePct = gm.todayChangePercent;
+    return gm;
+  }
   const built = buildGrowthMarketFromActivity(familyId, studentId);
   if (built?.history?.length) {
-    patchState((s) => { s.growthMarket = built; });
-    return built;
+    patchState((s) => {
+      ensureGrowthAssets(s);
+      s.growthMarket = { ...built, baseIndex: GROWTH_BASE_INDEX, currentIndex: built.index, todayChangePercent: built.todayChangePct };
+    });
+    return loadState().growthMarket;
   }
   return gm?.familyId === familyId ? gm : null;
 }
