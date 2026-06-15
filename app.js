@@ -1824,7 +1824,9 @@ function renderGrowthDashboard(student, gm, opts = {}) {
         <p class="hint">指数 ${gm.index} · <span class="${chg.up ? "is-up" : "is-down"}">${chg.changeText}</span> · ${gm.level}</p></div>
       </div>
       <div class="growth-chart-wrap growth-chart-wrap--compact">
-        <div id="${canvasId}-wrap" class="growth-kline-host" data-growth-kline="${canvasId}"></div>
+        <div class="growth-kline-overlay">
+          <div id="${canvasId}-wrap" class="growth-kline-host" data-growth-kline="${canvasId}"></div>
+        </div>
       </div>
       <p class="growth-disclaimer growth-disclaimer--compact">${GROWTH_DISCLAIMER}</p>
     </section>`;
@@ -1844,7 +1846,9 @@ function renderGrowthDashboard(student, gm, opts = {}) {
     <div class="growth-chart-wrap">
       <p class="growth-chart-label">红绿 K 线图 <span>最近 ${dayCount} 天 · 红涨绿跌</span></p>
       <div class="growth-kline-panel">
-        <div id="${canvasId}-wrap" class="growth-kline-host" data-growth-kline="${canvasId}"></div>
+        <div class="growth-kline-overlay">
+          <div id="${canvasId}-wrap" class="growth-kline-host" data-growth-kline="${canvasId}"></div>
+        </div>
       </div>
       <p class="hint growth-chart-hint">点击或触摸 K 线查看当日开收、涨跌与影响因素</p>
     </div>

@@ -163,6 +163,9 @@ export function drawGrowthKline(canvas, candles, opts = {}) {
       h: plotH + pad.b,
       candle: c,
       cx: x,
+      highY,
+      lowY,
+      barW,
     });
   });
 
@@ -176,8 +179,37 @@ export function drawGrowthKline(canvas, candles, opts = {}) {
   return hitAreas;
 }
 
+function ensureKlineOverlay(wrapEl) {
+  let overlay = wrapEl.parentElement;
+  if (overlay?.classList.contains("growth-kline-overlay")) return overlay;
+  overlay = document.createElement("div");
+  overlay.className = "growth-kline-overlay";
+  wrapEl.parentElement?.insertBefore(overlay, wrapEl);
+  overlay.appendChild(wrapEl);
+  return overlay;
+}
+
+function buildTipHTML(c, { compact = false, expanded = false } = {}) {
+  const pct = c.changePercent != null
+    ? `${c.changePercent >= 0 ? "+" : ""}${c.changePercent}%`
+    : "";
+  const chg = c.change >= 0 ? `+${c.change}` : String(c.change);
+  const dir = c.change >= 0 ? "is-up" : "is-down";
+  const reasons = (c.reasons || []).join(" / ") || "—";
+  if (compact && !expanded) {
+    return `<strong class="market-kline-tip__date">${c.dateKey}</strong>
+      <span class="market-kline-tip__close">收 ${c.close}</span>
+      <span class="${dir} market-kline-tip__chg">${chg} ${pct}</span>
+      <span class="market-kline-tip__expand-hint">点击查看详情</span>`;
+  }
+  return `<strong class="market-kline-tip__date">${c.dateKey}</strong>
+    <span class="market-kline-tip__ohlc">开 ${c.open} · 收 ${c.close}</span>
+    <span class="${dir} market-kline-tip__chg">${chg} ${pct}</span>
+    <span class="market-kline-tip__reasons">${reasons}</span>`;
+}
+
 /**
- * 挂载可滚动成长 K 线图 + tooltip
+ * 挂载可滚动成长 K 线图 + 最高点提示卡
  * @returns {{ destroy: () => void, select: (index: number) => void }}
  */
 export function mountGrowthKlineChart(wrapEl, candles, opts = {}) {
@@ -187,6 +219,9 @@ export function mountGrowthKlineChart(wrapEl, candles, opts = {}) {
   const barPx = opts.barWidth || 26;
   const height = opts.height || 200;
   const minW = Math.max(wrapEl.clientWidth || 320, list.length * barPx + 56);
+  const overlay = ensureKlineOverlay(wrapEl);
+  const isCompactBoard = !!wrapEl.closest(".growth-board--compact");
+  const mobileMq = window.matchMedia("(max-width: 519px)");
 
   wrapEl.innerHTML = "";
   wrapEl.classList.add("growth-kline-scroll");
@@ -198,85 +233,144 @@ export function mountGrowthKlineChart(wrapEl, candles, opts = {}) {
   canvas.setAttribute("aria-label", "成长大盘K线图");
   wrapEl.appendChild(canvas);
 
-  const tooltip = document.createElement("div");
-  tooltip.className = "growth-kline-tooltip hidden";
-  wrapEl.parentElement?.appendChild(tooltip);
+  const tipWrap = document.createElement("div");
+  tipWrap.className = "market-tip-wrap hidden";
+  const tipCard = document.createElement("div");
+  tipCard.className = "market-kline-tip";
+  tipCard.setAttribute("role", "status");
+  tipWrap.appendChild(tipCard);
+  overlay.appendChild(tipWrap);
 
   let selected = list.length - 1;
   let hitAreas = [];
+  let tipExpanded = false;
+  let riseTimer = null;
 
-  const render = () => {
-    hitAreas = drawGrowthKline(canvas, list, { highlightIndex: selected, animate: false });
-    showTooltip(selected);
-    if (opts.defaultScrollEnd !== false) {
-      wrapEl.scrollLeft = wrapEl.scrollWidth;
-    }
+  const useCompactTip = () => isCompactBoard || mobileMq.matches;
+
+  const triggerRise = () => {
+    tipWrap.classList.remove("market-tip-rise", "market-tip-wiggle");
+    void tipWrap.offsetWidth;
+    tipWrap.classList.add("market-tip-rise");
+    clearTimeout(riseTimer);
+    riseTimer = setTimeout(() => {
+      if (!tipWrap.classList.contains("hidden")) tipWrap.classList.add("market-tip-wiggle");
+    }, 1000);
   };
 
-  const showTooltip = (index) => {
-    if (!tooltip || index < 0 || !hitAreas[index]) {
-      tooltip?.classList.add("hidden");
+  const positionTip = (index) => {
+    const area = hitAreas[index];
+    if (!area || !overlay) return;
+    const tipW = tipCard.offsetWidth || 200;
+    const tipH = tipCard.offsetHeight || 88;
+    const viewW = overlay.clientWidth || wrapEl.clientWidth || 320;
+    const cx = area.cx - wrapEl.scrollLeft;
+    let left = cx - tipW + 24;
+    let top = area.highY - tipH - 12;
+    if (useCompactTip() && top < 36) top = 12;
+    top = Math.max(8, top);
+    left = Math.max(8, Math.min(left, viewW - tipW - 8));
+    if (left + tipW > cx - area.barW / 2 - 4) {
+      left = Math.max(8, cx - tipW - area.barW - 8);
+    }
+    tipWrap.style.left = `${left}px`;
+    tipWrap.style.top = `${top}px`;
+  };
+
+  const showTip = (index, { animate = false } = {}) => {
+    if (index < 0 || !hitAreas[index]) {
+      tipWrap.classList.add("hidden");
       return;
     }
     const c = hitAreas[index].candle;
-    const pct = c.changePercent != null
-      ? `${c.changePercent >= 0 ? "+" : ""}${c.changePercent}%`
-      : "";
-    const chg = c.change >= 0 ? `+${c.change}` : String(c.change);
-    const reasons = (c.reasons || []).join(" / ") || "—";
-    tooltip.innerHTML = `<strong>${c.dateKey}</strong>
-      <span>开 ${c.open} · 收 ${c.close}</span>
-      <span class="${c.change >= 0 ? "is-up" : "is-down"}">${chg} ${pct}</span>
-      <span class="growth-kline-tooltip__reasons">${reasons}</span>`;
-    tooltip.classList.remove("hidden");
+    const compact = useCompactTip();
+    tipCard.classList.toggle("market-kline-tip--compact", compact && !tipExpanded);
+    tipCard.innerHTML = buildTipHTML(c, { compact, expanded: tipExpanded });
+    tipWrap.classList.remove("hidden");
+    positionTip(index);
+    if (animate) triggerRise();
+  };
 
-    const wrapRect = wrapEl.getBoundingClientRect();
-    const parent = wrapEl.parentElement;
-    if (!parent) return;
-    const parentRect = parent.getBoundingClientRect();
-    const area = hitAreas[index];
-    const canvasRect = canvas.getBoundingClientRect();
-    const cx = canvasRect.left - parentRect.left + area.cx - wrapEl.scrollLeft;
-    let left = cx - tooltip.offsetWidth / 2;
-    left = Math.max(8, Math.min(left, parentRect.width - tooltip.offsetWidth - 8));
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = "4px";
+  const render = ({ animateTip = false } = {}) => {
+    hitAreas = drawGrowthKline(canvas, list, { highlightIndex: selected, animate: false });
+    showTip(selected, { animate: animateTip });
+    if (opts.defaultScrollEnd !== false) {
+      wrapEl.scrollLeft = wrapEl.scrollWidth;
+      positionTip(selected);
+    }
+  };
+
+  const selectCandle = (idx, { animate = true } = {}) => {
+    if (idx < 0 || idx >= list.length) return;
+    selected = idx;
+    tipExpanded = false;
+    render({ animateTip: animate });
+    opts.onSelect?.(list[idx], idx);
   };
 
   const pickFromEvent = (clientX) => {
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left;
-    const idx = hitAreas.findIndex((a) => x >= a.x && x < a.x + a.w);
-    if (idx >= 0) {
-      selected = idx;
-      render();
-      opts.onSelect?.(list[idx], idx);
+    return hitAreas.findIndex((a) => x >= a.x && x < a.x + a.w);
+  };
+
+  const onClick = (e) => {
+    const idx = pickFromEvent(e.clientX);
+    if (idx >= 0) selectCandle(idx);
+    else selectCandle(list.length - 1);
+  };
+
+  const onTouchStart = () => tipWrap.classList.add("market-tip-paused");
+  const onTouchEnd = (e) => {
+    setTimeout(() => tipWrap.classList.remove("market-tip-paused"), 800);
+    if (e.changedTouches[0]) {
+      const idx = pickFromEvent(e.changedTouches[0].clientX);
+      if (idx >= 0) selectCandle(idx);
+      else selectCandle(list.length - 1);
     }
   };
 
-  const onClick = (e) => pickFromEvent(e.clientX);
-  const onTouch = (e) => {
-    if (e.touches[0]) pickFromEvent(e.touches[0].clientX);
+  const onTipClick = (e) => {
+    e.stopPropagation();
+    if (!useCompactTip()) return;
+    tipExpanded = !tipExpanded;
+    showTip(selected);
+    positionTip(selected);
+  };
+
+  const onScroll = () => positionTip(selected);
+  const onResize = () => {
+    tipExpanded = false;
+    showTip(selected);
+    positionTip(selected);
   };
 
   canvas.addEventListener("click", onClick);
-  canvas.addEventListener("touchend", onTouch);
+  canvas.addEventListener("touchstart", onTouchStart, { passive: true });
+  canvas.addEventListener("touchend", onTouchEnd);
+  tipCard.addEventListener("click", onTipClick);
+  wrapEl.addEventListener("scroll", onScroll, { passive: true });
+  mobileMq.addEventListener("change", onResize);
 
   render();
-  requestAnimationFrame(render);
+  requestAnimationFrame(() => {
+    render({ animateTip: true });
+  });
 
   return {
     destroy() {
+      clearTimeout(riseTimer);
       canvas.removeEventListener("click", onClick);
-      canvas.removeEventListener("touchend", onTouch);
-      tooltip?.remove();
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchend", onTouchEnd);
+      tipCard.removeEventListener("click", onTipClick);
+      wrapEl.removeEventListener("scroll", onScroll);
+      mobileMq.removeEventListener("change", onResize);
+      tipWrap.remove();
       wrapEl.innerHTML = "";
     },
     select(index) {
-      if (index >= 0 && index < list.length) {
-        selected = index;
-        render();
-      }
+      selectCandle(index, { animate: true });
     },
   };
 }
