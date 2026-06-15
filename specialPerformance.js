@@ -112,14 +112,18 @@ export function specialPerformanceHTML(draft = {}) {
   const levelOpts = SPECIAL_LEVELS.map((l) =>
     `<option value="${l.label}" data-pts="${l.points}" ${sp.selfRating === l.label ? "selected" : ""}>${l.label}（建议 +${l.points}）</option>`
   ).join("");
-  const hasOpts = SPECIAL_HAS_OPTIONS.map((o) =>
-    `<label class="toggle"><input type="radio" name="spHas" value="${o.value}" ${has === o.value ? "checked" : ""} /><span>${o.label}</span></label>`
-  ).join("");
+  const hasOpts = SPECIAL_HAS_OPTIONS.map((o) => {
+    const sel = has === o.value;
+    return `<label class="special-choice-card ${sel ? "is-selected" : ""}">
+      <input type="radio" name="spHas" value="${o.value}" class="special-choice-card__radio" ${sel ? "checked" : ""} />
+      <span class="special-choice-card__text">${o.label}</span>
+    </label>`;
+  }).join("");
 
   return `<section class="card-block special-perf">
     <h3>✨ 今日特别表现</h3>
     <p class="hint">记录今天值得被看见的瞬间。系统只给建议积分，最终由爸爸妈妈确认后发放。</p>
-    <div class="field"><span>今天有没有特别表现</span><div class="radio-row">${hasOpts}</div></div>
+    <div class="field"><span>今天有没有特别表现</span><div class="special-choice-group">${hasOpts}</div></div>
     <div id="sp-fields" class="${has === "yes" || has === "unsure" ? "" : "hidden"}">
       <label class="field"><span>特别表现大类</span>
         <select name="spCategory" id="sp-cat">${catOpts}</select></label>

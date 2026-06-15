@@ -94,9 +94,12 @@ export function getCurrentQuestion(session, mistakes, material) {
 
 export function gradeTrainingAnswer(question, mistake, answer) {
   const norm = normalizeAnswerInput(answer, question?.options);
-  const key = (mistake?.correctAnswer || question?.answerKey || "").toString().toUpperCase();
+  const src = mistake?.answerSource || question?.answerSource;
+  const rawKey = mistake?.correctAnswer || question?.answerKey || question?.answer || "";
+  if (!rawKey || src === "ai_reference") return false;
+  const key = String(rawKey).toUpperCase();
   if (key.length === 1) return norm.toUpperCase() === key;
-  return norm.toLowerCase() === String(mistake?.correctAnswer || question?.answer).trim().toLowerCase();
+  return norm.toLowerCase() === String(rawKey).trim().toLowerCase();
 }
 
 export function submitTrainingAnswer(session, qid, answer, isCorrect, mistake) {

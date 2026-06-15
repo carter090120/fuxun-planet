@@ -46,6 +46,8 @@ const motherWorkbench = await import(pathToFileURL(path.join(root, "motherWorkbe
 const honorItems = await import(pathToFileURL(path.join(root, "honorItems.js")).href);
 const demoMode = await import(pathToFileURL(path.join(root, "demoMode.js")).href);
 const version = await import(pathToFileURL(path.join(root, "version.js")).href);
+const aiRef = await import(pathToFileURL(path.join(root, "aiReferenceAnswer.js")).href);
+const spPerf = await import(pathToFileURL(path.join(root, "specialPerformance.js")).href);
 
 const results = { pass: [], fail: [] };
 const ok = (name, cond) => (cond ? results.pass.push(name) : results.fail.push(name));
@@ -103,7 +105,7 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-ok("v15. SW含memberRoles与v16d", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16d"));
+ok("v15. SW含memberRoles与v16e", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -514,10 +516,33 @@ ok("v16d3. Sara引导", appText.includes("PAGE_GUIDES.mother") && appText.includ
 ok("v16d3. 荣誉室引导", appText.includes("PAGE_GUIDES.honor") && version.PAGE_GUIDES.honor("Daniel").includes("成长资产中心"));
 ok("v16d3. K线免责声明", growthMarket.GROWTH_DISCLAIMER.includes("不是真实投资") && appText.includes("renderKlineDisclaimer"));
 const manifestText = fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8");
-ok("v16d4. App版本v16-D", version.APP_VERSION === "v16-D" && appText.includes('APP_VERSION = "v16-D"') || version.APP_VERSION === "v16-D");
-ok("v16d4. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16d" && swText.includes('const CACHE_NAME = "fuxun-planet-v16d"'));
+ok("v16e. App版本v16-E", version.APP_VERSION === "v16-E");
+ok("v16e. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e"'));
+ok("v16e. SW含aiReferenceAnswer", swText.includes("aiReferenceAnswer.js"));
+ok("v16e. manifest启动参数", manifestText.includes('"start_url": "./?v=16e"'));
+ok("v16e. 特别表现卡片布局", spPerf.specialPerformanceHTML({ specialPerformance: { hasPerformance: "yes" } }).includes("special-choice-card"));
+ok("v16e. 特别表现CSS", cssText.includes(".special-choice-group") && cssText.includes(".special-choice-card.is-selected"));
+ok("v16e. 打卡sticky修复", cssText.includes(".page--checkin .checkin-sticky") && appText.includes("checkin-body"));
+ok("v16e. 横屏训练分层", appText.includes("train-topbar") && appText.includes("train-progress-row") && cssText.includes(".train-topbar"));
+ok("v16e. 工作台错误卡", appText.includes("renderWorkbenchError") && appText.includes("未找到对应工作台"));
+ok("v16e. 路由不静默回coach", !appText.includes('navigate("/coach"); return;') || appText.includes("renderWorkbenchError"));
+ok("v16e. AI参考答案模块", appText.includes("aiReferenceAnswer.js") && appText.includes("generateAiReferenceAnswer"));
+const sampleQ = {
+  questionId: "q-test",
+  stem: "The author primarily uses the second paragraph to emphasize contrast between two ideas.",
+  options: [
+    { key: "A", text: "introduce a new character" },
+    { key: "B", text: "emphasize a contrast between perspectives" },
+    { key: "C", text: "summarize prior research" },
+    { key: "D", text: "reject the main hypothesis" },
+  ],
+};
+const gen = aiRef.generateAiReferenceAnswer(sampleQ);
+ok("v16e. AI生成参考答案", gen.suggestedAnswer && gen.confidence >= 0.6 && gen.source === "ai_reference");
+ok("v16e. 未确认不计正式答案", !aiRef.hasStandardAnswer({ answerKey: "B", answerSource: "ai_reference", aiReference: { needsConfirmation: true } }));
+ok("v16e. 确认后可判分", aiRef.hasStandardAnswer({ answerKey: "B", answerSource: "ai_confirmed" }));
+ok("v16e. 置信度分级", aiRef.getConfidenceTier(0.87).label.includes("高置信"));
 ok("v16d4. SW含demoMode", swText.includes("demoMode.js"));
-ok("v16d4. manifest启动参数", manifestText.includes('"start_url": "./?v=16d"'));
 
 console.log("\n=== 复训星球验收结果 ===");
 console.log(`通过: ${results.pass.length}`);

@@ -5,7 +5,7 @@ import {
   ABILITIES, STATUS_OPTIONS, MOODS, ENERGY, COACHING_STYLES, PARENT_RESPONSE_PREFS,
   formatScore, formatDateKey, formatDateTime, calcAbilityScores, calcTotal, getGrade,
   scoreFromStatus, statusLabel, normalizeStatus,
-  getMaterials, addMaterial, getMistakes, upsertMistakes, getTodayMistakes,
+  getMaterials, addMaterial, patchMaterialQuestion, getMistakes, upsertMistakes, getTodayMistakes,
   addMaterialImages, updateMaterialImage, getMaterialImages, upsertPhotoMistakes, getPhotoMistakes,
   getTrainingSessions, getTodayRecord, upsertDailyRecord, getRecord,
   addCoachingAction, getCoachingActions, todayStatus, getPrivacy, savePrivacy,
@@ -57,6 +57,11 @@ import {
   specialPerformanceHTML, readSpecialPerformanceFromForm, formatSpecialPerformanceSummary,
   SPECIAL_CATEGORIES, getSuggestedPoints,
 } from "./specialPerformance.js";
+import {
+  hasStandardAnswer, getConfirmedAnswerKey, canGenerateAiReference, generateAiReferenceAnswer,
+  applyAiReferenceToQuestion, confirmAiReferenceAnswer, markQuestionPendingConfirmation,
+  aiReferenceCardHTML, getConfidenceTier, AI_CONFIRMED_SOURCE,
+} from "./aiReferenceAnswer.js";
 import {
   enterTrainingFocusMode, exitTrainingFocusMode, showTrainHint, updateLandscapeHint,
   requestFocusFullscreen, openParseDrawer, closeParseDrawer,
@@ -381,7 +386,14 @@ function renderHome(root) {
   });
   root.querySelectorAll("[data-enter]").forEach((b) => b.addEventListener("click", () => {
     const member = getMember(b.dataset.enter);
-    if (!member || !enterAsMember(b.dataset.enter)) return;
+    if (!member) {
+      showToast("未找到该家庭成员", "error");
+      return;
+    }
+    if (!enterAsMember(b.dataset.enter)) {
+      showToast("无法进入工作台，请检查账号绑定", "error");
+      return;
+    }
     navigate(getMemberEntryPath(member));
   }));
   root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
@@ -775,11 +787,15 @@ function renderTrain(root) {
       );
       const answers = {};
       const reasons = {};
+      const aiRefs = {};
       const joinSet = new Set();
       existing.forEach((m) => {
         answers[m.questionId] = m.studentAnswer || "";
         reasons[m.questionId] = m.mistakeReason || "";
-        if (!m.isCorrect && m.studentAnswer) joinSet.add(m.questionId);
+        if (!m.isCorrect && m.studentAnswer && hasStandardAnswer(m)) joinSet.add(m.questionId);
+      });
+      todayMat.questions.forEach((q) => {
+        if (q.aiReference?.needsConfirmation !== false && q.aiReference) aiRefs[q.questionId] = q.aiReference;
       });
 
       const totalQ = todayMat.questions.length;
@@ -800,31 +816,35 @@ function renderTrain(root) {
         <div id="mist-list">${todayMat.questions.map((q) => {
           const m = existing.find((x) => x.questionId === q.questionId);
           const child = answers[q.questionId] || "";
-          const correctKey = q.answerKey || q.answer || "";
-          const noKey = !correctKey;
+          const correctKey = getConfirmedAnswerKey(q, m);
+          const noKey = !hasStandardAnswer(q) && !correctKey;
           const noChild = !child;
           let compare = "待确认";
           let isWrong = false;
-          if (noKey) compare = "未识别正确答案";
+          if (noKey) compare = "缺少标准答案";
           else if (noChild) compare = "未识别孩子答案";
           else {
-            isWrong = m ? !m.isCorrect : false;
+            isWrong = child.toUpperCase() !== correctKey.toUpperCase();
             compare = isWrong ? "答案不一致 · 错题" : "答案一致 · 正确";
           }
           const reasonOpts = getMistakeReasonOptions(q.type);
           const reason = reasons[q.questionId] || m?.mistakeReason || reasonOpts[0];
           const joined = joinSet.has(q.questionId);
+          const aiRef = aiRefs[q.questionId] || (q.aiReference?.needsConfirmation !== false ? q.aiReference : null);
           return `<article class="compare-card ${isWrong ? "is-wrong" : ""}" data-qid="${q.questionId}">
             <div class="compare-card__head"><strong>第 ${q.number} 题</strong><span class="tag">${q.type}</span></div>
             <p class="q-stem">${q.stem.slice(0, 160)}${q.stem.length > 160 ? "…" : ""}</p>
-            <div class="compare-row"><span>正确答案</span><strong>${correctKey || "—"}</strong></div>
+            <div class="compare-row"><span>正确答案</span><strong data-correct-val="${q.questionId}">${correctKey || "—"}</strong></div>
             <div class="compare-row"><span>孩子答案</span><strong data-child-val="${q.questionId}">${child || "—"}</strong></div>
             <div class="compare-row compare-row--result" data-status="${q.questionId}">
-              ${noKey ? WarnCard("未识别正确答案，请补充后再比对。", "📋") : ""}
               ${!noKey && noChild ? RemindCard("未识别孩子答案，请选择 A/B/C/D。", "✏️") : ""}
               ${!noKey && !noChild ? `<span class="compare-badge ${isWrong ? "is-wrong" : "is-ok"}">${compare}</span>` : ""}
             </div>
-            ${!noKey ? `<div class="photo-abcd">${["A", "B", "C", "D"].map((k) =>
+            <div data-ai-slot="${q.questionId}">${noKey ? aiReferenceCardHTML(q, child, aiRef) : ""}</div>
+            ${noKey ? "" : `<div class="photo-abcd">${["A", "B", "C", "D"].map((k) =>
+              `<button type="button" class="photo-abcd__btn ${child === k ? "is-picked" : ""}" data-pick="${k}" data-q="${q.questionId}">${k}</button>`
+            ).join("")}</div>`}
+            ${noKey && noChild ? `<div class="photo-abcd">${["A", "B", "C", "D"].map((k) =>
               `<button type="button" class="photo-abcd__btn ${child === k ? "is-picked" : ""}" data-pick="${k}" data-q="${q.questionId}">${k}</button>`
             ).join("")}</div>` : ""}
             ${isWrong ? `<label class="field"><span>错因标签</span>
@@ -838,27 +858,39 @@ function renderTrain(root) {
         <button class="btn btn--primary btn--block" id="mist-save">确认错题并生成复训</button>`;
 
       const refreshCard = (qid) => {
-        const q = todayMat.questions.find((x) => x.questionId === qid);
+        const freshMat = getMaterials().find((m) => m.materialId === todayMat.materialId);
+        const q = freshMat?.questions?.find((x) => x.questionId === qid) || todayMat.questions.find((x) => x.questionId === qid);
+        if (q && freshMat) {
+          const idx = todayMat.questions.findIndex((x) => x.questionId === qid);
+          if (idx !== -1) todayMat.questions[idx] = q;
+        }
         const child = answers[qid] || "";
-        const key = (q.answerKey || "").toUpperCase();
-        const noKey = !key;
+        const key = getConfirmedAnswerKey(q);
+        const noKey = !hasStandardAnswer(q) && !key;
         const card = panel.querySelector(`[data-qid="${qid}"]`);
         const join = panel.querySelector(`[data-join="${qid}"]`);
         let isWrong = false;
         if (!noKey && child) {
-          isWrong = child.toUpperCase() !== key;
+          isWrong = child.toUpperCase() !== key.toUpperCase();
           if (isWrong) joinSet.add(qid);
           else joinSet.delete(qid);
-        }
+        } else joinSet.delete(qid);
         card?.classList.toggle("is-wrong", isWrong);
         const st = panel.querySelector(`[data-status="${qid}"]`);
         if (st) {
-          if (noKey) st.innerHTML = WarnCard("未识别正确答案，请补充后再比对。", "📋");
+          if (noKey) st.innerHTML = "";
           else if (!child) st.innerHTML = RemindCard("未识别孩子答案，请选择 A/B/C/D。", "✏️");
           else st.innerHTML = `<span class="compare-badge ${isWrong ? "is-wrong" : "is-ok"}">${isWrong ? "答案不一致 · 错题" : "答案一致 · 正确"}</span>`;
         }
         const cv = panel.querySelector(`[data-child-val="${qid}"]`);
         if (cv) cv.textContent = child || "—";
+        const ck = panel.querySelector(`[data-correct-val="${qid}"]`);
+        if (ck) ck.textContent = key || "—";
+        const aiSlot = panel.querySelector(`[data-ai-slot="${qid}"]`);
+        if (aiSlot) {
+          const ref = aiRefs[qid] || (q?.aiReference?.needsConfirmation !== false ? q?.aiReference : null);
+          aiSlot.innerHTML = noKey ? aiReferenceCardHTML(q, child, ref) : "";
+        }
         if (join) { join.checked = isWrong; join.disabled = !isWrong; }
         card?.querySelectorAll("[data-pick]").forEach((b) => b.classList.toggle("is-picked", b.dataset.pick === child));
       };
@@ -874,6 +906,8 @@ function renderTrain(root) {
         if (cb.checked) joinSet.add(cb.dataset.join);
         else joinSet.delete(cb.dataset.join);
       }));
+
+      bindMistakeAiReference(panel, todayMat, answers, aiRefs, refreshCard);
 
       $("#mist-save", panel)?.addEventListener("click", () => {
         const list = buildMistakesFromAnswers({ ...todayMat, materialId: todayMat.materialId }, answers);
@@ -1065,17 +1099,26 @@ function renderTrainPlay(root) {
       <span class="train-opt__key">${o.key}</span><span class="train-opt__text">${o.text || o.key}</span></button>`;
   }).join("");
 
-  root.innerHTML = `<div class="train-focus">
-    <div class="train-focus__top">
-      <div class="train-focus__top-left">
-        <button type="button" class="tf-btn" id="pause" title="暂停">⏸</button>
-        <button type="button" class="tf-btn" id="home-train" title="复训首页">⌂</button>
+  const noStdAnswer = !hasStandardAnswer(question) && !hasStandardAnswer(mistake);
+  const aiRefPanel = showFb && noStdAnswer && trainPlayFeedback?.aiRef
+    ? aiReferenceCardHTML(question, showFb.answer, trainPlayFeedback.aiRef)
+    : (showFb && noStdAnswer ? aiReferenceCardHTML(question, showFb.answer, null) : "");
+
+  root.innerHTML = `<div class="train-focus train-play">
+    <div class="train-topbar">
+      <div class="train-topbar__left">
+        <button type="button" class="tf-btn tf-btn--compact" id="pause" title="暂停">⏸</button>
+        <button type="button" class="tf-btn tf-btn--compact" id="home-train" title="复训首页">⌂</button>
       </div>
-      <div class="train-focus__top-mid">Q${qNum} · ${mistake?.questionType || "题型"} · 剩余 ${prog.remaining} 错题</div>
-      <div class="train-focus__top-right">
-        <button type="button" class="tf-btn tf-btn--ghost" id="enter-focus" title="进入专注模式">专注</button>
-        <button type="button" class="tf-btn" id="quit" title="退出">✕</button>
+      <div class="train-topbar__mid">Q${qNum} · ${mistake?.questionType || "题型"} · 剩余 ${prog.remaining} 错题</div>
+      <div class="train-topbar__right">
+        <button type="button" class="tf-btn tf-btn--compact tf-btn--ghost" id="enter-focus" title="进入专注模式">专注</button>
+        <button type="button" class="tf-btn tf-btn--compact" id="quit" title="退出">✕</button>
       </div>
+    </div>
+    <div class="train-progress-row">
+      <div class="train-progress"><i style="width:${prog.roundProgress}%"></i></div>
+      <p class="train-meta">第 ${prog.rounds} 轮 · 正确率 ${prog.accuracy}% · 🔥${prog.streak}</p>
     </div>
     <div id="train-landscape-hint" class="train-focus__landscape-hint hidden">
       <strong>建议横屏答题</strong> · 题目和选项会更清楚
@@ -1083,9 +1126,8 @@ function renderTrainPlay(root) {
     <div class="train-stage">
       <section class="train-question-panel">
         <span class="train-type-tag">${mistake?.questionType || "题型"}</span>
-        <div class="train-progress"><i style="width:${prog.roundProgress}%"></i></div>
-        <p class="train-meta">第 ${prog.rounds} 轮 · 正确率 ${prog.accuracy}% · 🔥${prog.streak}</p>
         <div class="train-stem-scroll"><p class="train-stem">${question?.stem || mistake?.stem || ""}</p></div>
+        ${aiRefPanel}
       </section>
       <section class="train-answer-panel">
         <div class="train-opts" id="opts">${optHtml}</div>
@@ -1116,23 +1158,47 @@ function renderTrainPlay(root) {
 
   if (!showFb) {
     root.querySelectorAll(".train-opt").forEach((btn) => btn.addEventListener("click", () => {
-      const ok = gradeTrainingAnswer(question, mistake, btn.dataset.a);
-      const key = (mistake?.correctAnswer || question?.answerKey || "").toString().toUpperCase();
+      const answer = btn.dataset.a;
+      const key = getConfirmedAnswerKey(question, mistake);
+      const missingKey = !key;
+      let ok = null;
+      if (!missingKey) ok = gradeTrainingAnswer(question, mistake, answer);
       trainPlayFeedback = {
-        ok, key, answer: btn.dataset.a,
+        ok, key, answer,
+        missingKey,
         explanation: mistake?.explanation || question?.explanation || "回到原文定位关键句。",
         reason: mistake?.mistakeReason || "注意审题与证据对应。",
-        qid, mistake, sessionId: session.sessionId,
+        qid, mistake, sessionId: session.sessionId, question, materialId: mat?.materialId,
+        aiRef: question?.aiReference?.needsConfirmation !== false ? question?.aiReference : null,
       };
       trainPlayPhase = "feedback";
-      showTrainHint(ok ? "答对了" : "再想想");
+      showTrainHint(missingKey ? "缺少标准答案" : (ok ? "答对了" : "再想想"));
       render();
     }));
   }
 
+  bindAiReferenceHandlers(root, mat, question, () => {
+    const q = mat?.questions?.find((x) => x.questionId === trainPlayFeedback?.qid) || question;
+    if (trainPlayFeedback) {
+      trainPlayFeedback.question = q;
+      trainPlayFeedback.aiRef = q?.aiReference;
+      const key = getConfirmedAnswerKey(q, trainPlayFeedback.mistake);
+      if (key) {
+        trainPlayFeedback.key = key;
+        trainPlayFeedback.ok = gradeTrainingAnswer(q, trainPlayFeedback.mistake, trainPlayFeedback.answer);
+        trainPlayFeedback.missingKey = false;
+      }
+    }
+    render();
+  });
+
   $("#next-q", root)?.addEventListener("click", () => {
     closeParseDrawer();
     if (trainPlayFeedback) {
+      if (trainPlayFeedback.missingKey) {
+        showTrainHint("请先补全或确认标准答案");
+        return;
+      }
       session = getActiveSession() || session;
       session = submitTrainingAnswer(session, trainPlayFeedback.qid, trainPlayFeedback.answer, trainPlayFeedback.ok, trainPlayFeedback.mistake);
     }
@@ -1255,6 +1321,125 @@ function collectSpecialForm(root) {
   return checkinDraft.specialPerformance;
 }
 
+function bindAiReferenceHandlers(root, mat, question, onUpdate) {
+  if (!mat || !question) return;
+  const user = getCurrentUser();
+  const qid = question.questionId;
+
+  root.querySelector(`[data-ai-gen="${qid}"]`)?.addEventListener("click", () => {
+    if (!canGenerateAiReference(question, trainPlayFeedback?.answer)) {
+      showToast("请先选择孩子答案", "error");
+      return;
+    }
+    const aiRef = generateAiReferenceAnswer(question);
+    applyAiReferenceToQuestion(mat.materialId, qid, aiRef);
+    markQuestionPendingConfirmation(mat.materialId, qid, aiRef);
+    const tier = getConfidenceTier(aiRef.confidence);
+    showToast(tier.id === "low" ? tier.label : "AI 参考答案已生成，待确认");
+    onUpdate?.();
+  });
+
+  root.querySelector(`[data-ai-confirm="${qid}"]`)?.addEventListener("click", () => {
+    const q = getMaterials().find((m) => m.materialId === mat.materialId)?.questions?.find((x) => x.questionId === qid);
+    const ref = q?.aiReference;
+    if (!ref?.suggestedAnswer) return showToast("无可确认的答案", "error");
+    confirmAiReferenceAnswer(mat.materialId, qid, ref, user?.userId);
+    showToast("已确认 AI 参考答案");
+    onUpdate?.();
+  });
+
+  root.querySelectorAll(`[data-ai-manual="${qid}"]`).forEach((btn) => {
+    btn.addEventListener("click", () => {
+      root.querySelector(`[data-ai-manual-panel="${qid}"]`)?.classList.toggle("hidden");
+    });
+  });
+
+  root.querySelectorAll(`[data-ai-pick][data-q="${qid}"]`).forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.aiPick;
+      patchMaterialQuestion(mat.materialId, qid, {
+        answerKey: key,
+        answer: key,
+        answerSource: AI_CONFIRMED_SOURCE,
+        confirmedBy: user?.userId,
+        confirmedAt: new Date().toISOString(),
+        aiReference: null,
+      });
+      const mistakes = getMistakes().filter((m) => m.materialId === mat.materialId && m.questionId === qid);
+      if (mistakes.length) {
+        upsertMistakes(mistakes.map((m) => ({
+          ...m,
+          correctAnswer: key,
+          answerSource: AI_CONFIRMED_SOURCE,
+          pendingConfirmation: false,
+        })));
+      }
+      showToast(`已手动设置标准答案 ${key}`);
+      onUpdate?.();
+    });
+  });
+
+  root.querySelector(`[data-ai-dismiss="${qid}"]`)?.addEventListener("click", () => {
+    showToast("已暂不处理");
+  });
+}
+
+function bindMistakeAiReference(panel, todayMat, answers, aiRefs, refreshCard) {
+  if (!todayMat || panel.dataset.aiBound) return;
+  panel.dataset.aiBound = "1";
+  panel.addEventListener("click", (e) => {
+    const user = getCurrentUser();
+    const gen = e.target.closest("[data-ai-gen]");
+    if (gen) {
+      const qid = gen.dataset.aiGen;
+      const q = todayMat.questions.find((x) => x.questionId === qid);
+      const child = answers[qid];
+      if (!canGenerateAiReference(q, child)) {
+        showToast("请先选择孩子答案", "error");
+        return;
+      }
+      const aiRef = generateAiReferenceAnswer(q);
+      aiRefs[qid] = aiRef;
+      applyAiReferenceToQuestion(todayMat.materialId, qid, aiRef);
+      markQuestionPendingConfirmation(todayMat.materialId, qid, aiRef);
+      refreshCard(qid);
+      return;
+    }
+    const confirm = e.target.closest("[data-ai-confirm]");
+    if (confirm) {
+      const qid = confirm.dataset.aiConfirm;
+      const q = todayMat.questions.find((x) => x.questionId === qid);
+      const ref = q?.aiReference || aiRefs[qid];
+      if (!ref?.suggestedAnswer) return;
+      confirmAiReferenceAnswer(todayMat.materialId, qid, ref, user?.userId);
+      delete aiRefs[qid];
+      refreshCard(qid);
+      showToast("已确认 AI 参考答案");
+      return;
+    }
+    const manual = e.target.closest("[data-ai-manual]");
+    if (manual) {
+      panel.querySelector(`[data-ai-manual-panel="${manual.dataset.aiManual}"]`)?.classList.toggle("hidden");
+      return;
+    }
+    const pick = e.target.closest("[data-ai-pick]");
+    if (pick) {
+      const qid = pick.dataset.q;
+      const key = pick.dataset.aiPick;
+      patchMaterialQuestion(todayMat.materialId, qid, {
+        answerKey: key,
+        answer: key,
+        answerSource: AI_CONFIRMED_SOURCE,
+        confirmedBy: user?.userId,
+        confirmedAt: new Date().toISOString(),
+      });
+      delete aiRefs[qid];
+      refreshCard(qid);
+      showToast(`已手动设置标准答案 ${key}`);
+    }
+  });
+}
+
 function bindSpecialForm(root) {
   const form = $("#special-f", root);
   if (!form) return;
@@ -1278,7 +1463,20 @@ function bindSpecialForm(root) {
     const lv = $("#sp-level", form)?.value;
     if (suggest) suggest.innerHTML = `建议积分：<strong>${lv ? getSuggestedPoints(lv) : "—"}</strong>（需父母确认）`;
   };
-  form.querySelectorAll('input[name="spHas"]').forEach((r) => r.addEventListener("change", () => { toggleFields(); collectSpecialForm(root); persistCheckinDraft(); }));
+  const syncChoiceCards = () => {
+    const checked = form.querySelector('input[name="spHas"]:checked');
+    form.querySelectorAll(".special-choice-card").forEach((card) => {
+      const radio = card.querySelector('input[name="spHas"]');
+      card.classList.toggle("is-selected", radio === checked);
+    });
+  };
+  form.querySelectorAll('input[name="spHas"]').forEach((r) => r.addEventListener("change", () => {
+    syncChoiceCards();
+    toggleFields();
+    collectSpecialForm(root);
+    persistCheckinDraft();
+  }));
+  syncChoiceCards();
   $("#sp-cat", form)?.addEventListener("change", () => { updateSubs(); collectSpecialForm(root); persistCheckinDraft(); });
   $("#sp-level", form)?.addEventListener("change", () => { updateSuggest(); collectSpecialForm(root); persistCheckinDraft(); });
   form.querySelectorAll("textarea, select").forEach((el) => el.addEventListener("change", () => { collectSpecialForm(root); persistCheckinDraft(); }));
@@ -2876,15 +3074,34 @@ function renderMotherWorkbench(root, ctx) {
   bindMotherWorkbench(root, { member, student, user, todayRec, ai, wallet });
 }
 
+function renderWorkbenchError(root, detail = "") {
+  root.innerHTML = shell("工作台", "Workbench", "←", `
+    <div class="card-block workbench-error">
+      <h3>未找到对应工作台</h3>
+      <p>请返回首页重新进入。</p>
+      ${detail ? `<p class="hint">${detail}</p>` : ""}
+      <button class="btn btn--primary btn--block" type="button" data-go="/home">返回首页</button>
+    </div>`);
+  root.querySelector("[data-go]")?.addEventListener("click", () => navigate("/home"));
+  root.querySelector("[data-back]")?.addEventListener("click", () => navigate("/home"));
+}
+
 function renderCoachParent(root, parentRole) {
   const role = parentRole || getCurrentRole();
-  if (role !== "father" && role !== "mother") { navigate("/coach"); return; }
+  if (role !== "father" && role !== "mother") {
+    renderWorkbenchError(root, "工作台角色无效。");
+    return;
+  }
   const user = getCurrentUser();
   if (user?.role !== "admin" && user?.role !== role) {
-    navigate(user?.role === "father" || user?.role === "mother" ? `/coach/${user.role}` : "/coach");
+    renderWorkbenchError(root, `当前登录身份无法访问${role === "father" ? " Ryan" : " Sara"} 工作台。`);
     return;
   }
   const member = getMembers().find((m) => m.role === role);
+  if (!member) {
+    renderWorkbenchError(root, "家庭中未找到该家长成员。");
+    return;
+  }
   const student = getStudentMember();
   const todayRec = getTodayRecord();
   const wb = getParentWorkbenchMeta(role, member);
@@ -3466,7 +3683,7 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=16c`;
+  location.href = `${location.pathname}?v=16e`;
 }
 
 function render() {
@@ -3479,8 +3696,9 @@ function render() {
     if (!root) return;
     const fn = ROUTES[route.path] || renderBoot;
     if (route.path === "poster") fn(root, route.id);
-    else if (route.path === "coach" && (route.id === "father" || route.id === "mother")) {
-      renderCoachParent(root, route.id);
+    else if (route.path === "coach" && route.id) {
+      if (route.id === "father" || route.id === "mother") renderCoachParent(root, route.id);
+      else renderWorkbenchError(root, `路由 #/coach/${route.id} 不存在。`);
     } else if (route.path === "coach-parent") {
       navigate(`/coach/${route.id || getCurrentRole()}`);
       return;
@@ -3526,7 +3744,7 @@ function bindGlobalHandlers() {
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.register("./service-worker.js?v=15");
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=16e");
     if (reg.waiting && navigator.serviceWorker.controller) {
       reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }

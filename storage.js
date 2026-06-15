@@ -252,6 +252,15 @@ export function addMaterial(mat) {
   return created;
 }
 
+export function patchMaterialQuestion(materialId, questionId, patch) {
+  patchState((s) => {
+    const mat = s.materials.find((m) => m.materialId === materialId);
+    if (!mat?.questions) return;
+    const i = mat.questions.findIndex((q) => q.questionId === questionId);
+    if (i !== -1) mat.questions[i] = { ...mat.questions[i], ...patch };
+  });
+}
+
 export function getMaterialImages(familyId, materialId) {
   const fid = familyId || loadState().session?.familyId;
   let list = loadState().materialImages.filter((m) => m.familyId === fid);
