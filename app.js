@@ -1759,13 +1759,22 @@ function checkSwUpdate() {
 }
 
 function renderBoot() {
-  migrateLegacyStorage();
-  checkSwUpdate();
-  if (isLoggedIn()) {
-    const u = getCurrentUser();
-    restoreActiveSession(u?.familyId);
-    navigate("/home");
-  } else navigate("/welcome");
+  try {
+    migrateLegacyStorage();
+    checkSwUpdate();
+    if (isLoggedIn()) {
+      const u = getCurrentUser();
+      restoreActiveSession(u?.familyId);
+      navigate("/home");
+    } else {
+      navigate("/welcome");
+    }
+  } catch (err) {
+    console.error("[复训星球] renderBoot failed", err);
+    logout();
+    navigate("/welcome");
+    render();
+  }
 }
 
 const ROUTES = {
@@ -1776,62 +1785,131 @@ const ROUTES = {
   poster: (r, id) => renderPoster(r, id),
 };
 
-function render() {
-  const route = parseRoute();
-  if (!guardRoute(route.path)) return;
-  const root = $("#app-root");
-  const fn = ROUTES[route.path] || renderBoot;
-  if (route.path === "poster") fn(root, route.id);
-  else if (route.path === "coach-parent") fn(root, route.id || getCurrentRole());
-  else fn(root);
-  updateBottomNav(route, root, navigate, getUnreadCount());
+export function showBootError(err) {
+  const root = document.getElementById("app-root");
+  if (!root) return;
+  const msg = err?.message || String(err || "未知错误");
+  const detail = err?.stack ? err.stack.split("\n").slice(0, 4).join("\n") : msg;
+  root.innerHTML = `<div class="page page--error"><div class="error-card">
+    <h1>复训星球加载失败</h1>
+    <p>页面加载遇到问题，请刷新或清除缓存后重试。</p>
+    <pre class="error-card__detail">${detail.replace(/</g, "&lt;")}</pre>
+    <button class="btn btn--primary btn--block" type="button" id="err-reload">重新加载</button>
+    <button class="btn btn--ghost btn--block" type="button" id="err-clear">清除本地缓存并重启</button>
+  </div></div>`;
+  root.querySelector("#err-reload")?.addEventListener("click", () => location.reload());
+  root.querySelector("#err-clear")?.addEventListener("click", () => clearClientCachesAndRestart());
 }
 
-$("#privacy-form")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!pendingRecord) return;
-  pendingRecord.privacy = {
-    showSelfie: $("#p-selfie").checked,
-    showLocation: $("#p-location").checked,
-    showScores: $("#p-scores").checked,
-  };
-  pendingRecord.posterDataUrl = await generatePoster(pendingRecord, pendingRecord.privacy, getFamily());
-  upsertDailyRecord(pendingRecord);
-  const id = pendingRecord.recordId;
-  pendingRecord = null;
-  $("#privacy-dialog").close();
-  showToast("海报已生成");
-  navigate(`/poster/${id}`);
-});
-$("#p-cancel")?.addEventListener("click", () => $("#privacy-dialog").close());
+async function clearClientCachesAndRestart() {
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch { /* ignore */ }
+  location.href = `${location.pathname}?v=8`;
+}
 
-initConfirmDialog();
-$("#sw-refresh")?.addEventListener("click", () => {
-  localStorage.setItem("fuxun-sw-ver", SW_CACHE_ID);
-  window.location.reload();
-});
-window.addEventListener("hashchange", render);
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", async () => {
+function render() {
+  try {
+    const route = parseRoute();
+    if (!guardRoute(route.path)) return;
+    const root = $("#app-root");
+    if (!root) return;
+    const fn = ROUTES[route.path] || renderBoot;
+    if (route.path === "poster") fn(root, route.id);
+    else if (route.path === "coach-parent") fn(root, route.id || getCurrentRole());
+    else fn(root);
+    updateBottomNav(route, root, navigate, getUnreadCount());
+  } catch (err) {
+    console.error("[复训星球] render failed", err);
+    showBootError(err);
+  }
+}
+
+function bindGlobalHandlers() {
+  $("#privacy-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!pendingRecord) return;
     try {
-      const reg = await navigator.serviceWorker.register("./service-worker.js");
-      if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
-      reg.addEventListener("updatefound", () => {
-        const nw = reg.installing;
-        nw?.addEventListener("statechange", () => {
-          if (nw.state === "installed" && navigator.serviceWorker.controller) {
-            reg.waiting?.postMessage({ type: "SKIP_WAITING" });
-          }
-        });
-      });
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (!window.__fuxunReloading) {
-          window.__fuxunReloading = true;
-          window.location.reload();
+      pendingRecord.privacy = {
+        showSelfie: $("#p-selfie").checked,
+        showLocation: $("#p-location").checked,
+        showScores: $("#p-scores").checked,
+      };
+      pendingRecord.posterDataUrl = await generatePoster(pendingRecord, pendingRecord.privacy, getFamily());
+      upsertDailyRecord(pendingRecord);
+      const id = pendingRecord.recordId;
+      pendingRecord = null;
+      $("#privacy-dialog").close();
+      showToast("海报已生成");
+      navigate(`/poster/${id}`);
+    } catch (err) {
+      showBootError(err);
+    }
+  });
+  $("#p-cancel")?.addEventListener("click", () => $("#privacy-dialog").close());
+  initConfirmDialog();
+  $("#sw-refresh")?.addEventListener("click", () => {
+    localStorage.setItem("fuxun-sw-ver", SW_CACHE_ID);
+    window.location.reload();
+  });
+  window.addEventListener("hashchange", render);
+}
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=8");
+    if (reg.waiting && navigator.serviceWorker.controller) {
+      reg.waiting.postMessage({ type: "SKIP_WAITING" });
+    }
+    reg.addEventListener("updatefound", () => {
+      const nw = reg.installing;
+      nw?.addEventListener("statechange", () => {
+        if (nw.state === "installed" && navigator.serviceWorker.controller) {
+          document.getElementById("sw-update-bar")?.classList.remove("hidden");
+          reg.waiting?.postMessage({ type: "SKIP_WAITING" });
         }
       });
-    } catch { /* offline file open */ }
-  });
+    });
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (navigator.serviceWorker.controller && !window.__fuxunReloading) {
+        window.__fuxunReloading = true;
+        window.location.reload();
+      }
+    });
+  } catch { /* offline file open */ }
 }
-if (!window.location.hash) navigate("/boot");
-else render();
+
+export async function initApp() {
+  window.onerror = (_msg, _src, _line, _col, err) => {
+    showBootError(err || new Error(String(_msg)));
+    return true;
+  };
+  window.addEventListener("unhandledrejection", (e) => {
+    showBootError(e.reason || new Error("Unhandled promise rejection"));
+  });
+
+  bindGlobalHandlers();
+  await registerServiceWorker();
+
+  try {
+    const hash = window.location.hash;
+    if (!hash || hash === "#" || hash === "#/boot") {
+      renderBoot();
+    } else {
+      render();
+    }
+  } catch (err) {
+    console.error("[复训星球] boot failed", err);
+    showBootError(err);
+  }
+}

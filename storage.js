@@ -376,9 +376,10 @@ export function migrateLegacyStorage() {
 }
 
 export function todayStatus(familyId) {
-  const rec = getTodayRecord(familyId);
-  const mistakes = getTodayMistakes(familyId);
-  const sessions = getTrainingSessions(familyId).filter((t) => t.dateKey === formatDateKey());
+  const fid = familyId || loadState().session?.familyId;
+  const rec = getTodayRecord(fid);
+  const mistakes = getTodayMistakes(fid);
+  const sessions = getTrainingSessions(fid).filter((t) => t.dateKey === formatDateKey());
   const active = sessions.find((t) => t.status === "active" || t.status === "paused_exit");
   const done = sessions.some((t) => t.status === "completed");
   const student = getStudentMember(fid);

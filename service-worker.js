@@ -1,4 +1,5 @@
-const CACHE_NAME = "fuxun-planet-v7";
+const CACHE_NAME = "fuxun-planet-v8";
+
 const SHELL_ASSETS = [
   "./", "./index.html", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png",
@@ -11,16 +12,52 @@ const APP_ASSETS = [
   "./charts.js", "./poster.js",
 ];
 
+const NETWORK_FIRST_PATTERNS = [
+  "index.html", "app.js", "styles.css", "manifest.webmanifest", "service-worker.js",
+  ...APP_ASSETS.map((p) => p.replace("./", "")),
+];
+
+function isNetworkFirst(url) {
+  const path = url.pathname.replace(/^\//, "");
+  return NETWORK_FIRST_PATTERNS.some((name) => path === name || path.endsWith(`/${name}`));
+}
+
+function isLegacyCache(name) {
+  return name.startsWith("fuxun-planet-")
+    || name.startsWith("study-habit")
+    || name.startsWith("fsgrowth");
+}
+
+async function networkFirst(request) {
+  try {
+    const res = await fetch(request);
+    if (res && res.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(request, res.clone());
+    }
+    return res;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    return caches.match("./index.html");
+  }
+}
+
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll([...SHELL_ASSETS, ...APP_ASSETS])));
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS).catch(() => undefined)),
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))),
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.filter((k) => isLegacyCache(k) && k !== CACHE_NAME).map((k) => caches.delete(k)),
+      ),
+    ).then(() => self.clients.claim()),
   );
-  self.clients.claim();
 });
 
 self.addEventListener("message", (e) => {
@@ -30,22 +67,21 @@ self.addEventListener("message", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
-  const isAppJs = APP_ASSETS.some((p) => url.pathname.endsWith(p.replace("./", "")));
+  if (url.origin !== self.location.origin) return;
 
-  if (isAppJs) {
-    e.respondWith(
-      fetch(e.request)
-        .then((res) => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
-          return res;
-        })
-        .catch(() => caches.match(e.request).then((c) => c || caches.match("./index.html"))),
-    );
+  if (isNetworkFirst(url)) {
+    e.respondWith(networkFirst(e.request));
     return;
   }
 
   e.respondWith(
-    caches.match(e.request).then((c) => c || fetch(e.request).catch(() => caches.match("./index.html"))),
+    fetch(e.request)
+      .then((res) => {
+        if (res.ok) {
+          caches.open(CACHE_NAME).then((c) => c.put(e.request, res.clone()));
+        }
+        return res;
+      })
+      .catch(() => caches.match(e.request).then((c) => c || caches.match("./index.html"))),
   );
 });
