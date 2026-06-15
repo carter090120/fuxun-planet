@@ -6,11 +6,9 @@ import { registerFamily, getStudentMember } from "./auth.js";
 import { parseQuestionBank, buildMistakesFromAnswers } from "./questionParser.js";
 import { createTrainingSession } from "./trainingCoach.js";
 import { seedDemoGrowthMarket } from "./growthMarket.js";
+import { applyDemoPresentationLayer, DEMO_SPECIAL_PERFORMANCE, DEMO_CREDENTIALS } from "./demoMode.js";
 
-export const DEMO_CREDENTIALS = {
-  email: "demo@fuxun.local",
-  password: "demo1234",
-};
+export { DEMO_CREDENTIALS };
 
 export const DEMO_QUESTION_BANK = `1. Which choice completes the text with the most logical and precise word? The scientist was ______ by the unexpected results of the experiment.
 A. confirmed
@@ -130,21 +128,16 @@ export function seedDemo() {
     familyId: reg.family.familyId,
     studentId: student?.memberId,
     dateKey: formatDateKey(),
-    studyContent: "SAT Reading 词汇与结构题",
-    completedTasks: "完成 5 题复训，错题清零",
+    studyContent: "SAT Reading · Evidence 证据定位",
+    completedTasks: "完成 Evidence 题复训，理解证据定位方法",
     mood: "开心",
     energy: "充沛",
     stress: "低",
     totalScore: 88,
-    specialPerformance: {
-      hasPerformance: "yes",
-      category: "学习场景",
-      subcategory: "主动复训错题",
-      customDescription: "今天主动把 3 道错题全部清零了。",
-      selfRating: "坚持突破",
-      suggestedPoints: 200,
-    },
+    specialPerformance: { ...DEMO_SPECIAL_PERFORMANCE },
   });
+
+  applyDemoPresentationLayer(reg.family.familyId);
 
   return {
     ok: true,

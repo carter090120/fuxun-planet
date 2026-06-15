@@ -1279,6 +1279,10 @@ body:has(.sw-update-bar:not(.hidden)) .toast { top: calc(var(--safe-t) + 52px); 
 .workbench-first--mother { background: linear-gradient(165deg, rgba(255,255,255,0.96), rgba(253,242,248,0.92)); }
 .btn--ledger { margin-top: 10px; }
 
+.demo-tools { margin-bottom: 14px; }
+.demo-tools h3 { margin: 4px 0 0; font-size: 1.05rem; }
+.demo-tools__actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+
 @media (min-width: 400px) {
   .stat-strip--4 { grid-template-columns: repeat(4, 1fr); }
 }

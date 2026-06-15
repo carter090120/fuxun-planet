@@ -44,6 +44,7 @@ const memberRoles = await import(pathToFileURL(path.join(root, "memberRoles.js")
 const fatherWorkbench = await import(pathToFileURL(path.join(root, "fatherWorkbench.js")).href);
 const motherWorkbench = await import(pathToFileURL(path.join(root, "motherWorkbench.js")).href);
 const honorItems = await import(pathToFileURL(path.join(root, "honorItems.js")).href);
+const demoMode = await import(pathToFileURL(path.join(root, "demoMode.js")).href);
 
 const results = { pass: [], fail: [] };
 const ok = (name, cond) => (cond ? results.pass.push(name) : results.fail.push(name));
@@ -72,9 +73,9 @@ const fatherW = growthAssets.getParentWalletByRole(st, fam.familyId, "father");
 const motherW = growthAssets.getParentWalletByRole(st, fam.familyId, "mother");
 const studentW = growthAssets.getStudentWalletFromState(st, fam.familyId, student.memberId);
 const gm = st.growthMarket;
-ok("积分. 爸爸钱包 10000", fatherW?.balance === 10000 && fatherW?.initialBalance === 10000);
-ok("积分. 妈妈钱包 10000", motherW?.balance === 10000 && motherW?.initialBalance === 10000);
-ok("积分. 孩子钱包 10000", studentW?.balance === 10000 && studentW?.initialBalance === 10000);
+ok("积分. 爸爸钱包 9500", fatherW?.balance === 9500 && fatherW?.initialBalance === 10000);
+ok("积分. 妈妈钱包 9500", motherW?.balance === 9500 && motherW?.initialBalance === 10000);
+ok("积分. 孩子钱包 10500", studentW?.balance === 10500 && studentW?.initialBalance === 10000);
 ok("积分. 成长大盘 baseIndex 4000", gm?.baseIndex === 4000);
 ok("积分. 成长大盘 currentIndex", (gm?.currentIndex ?? gm?.index) >= 4000);
 
@@ -101,7 +102,7 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-ok("v15. SW含memberRoles与v16d", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16d"));
+ok("v15. SW含memberRoles与v16d2", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16d2"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -120,13 +121,16 @@ ok("v16d. 首屏压缩函数", appText.includes("renderFatherFirstScreen") && ap
 ok("v16d. planet-card样式", cssText.includes(".planet-card") && cssText.includes(".quick-action-btn"));
 ok("v16d. Ryan首屏快捷按钮", appText.includes('data-father-tool="card"') && appText.includes("发贺卡"));
 ok("v16d. Sara首屏快捷按钮", appText.includes('data-mother-tool="card"') && appText.includes("发鼓励卡"));
+ok("v16d2. demoMode模块", appText.includes("demoMode.js") && appText.includes("isDemoAccount"));
+ok("v16d2. 演示工具卡片", appText.includes("演示工具") && appText.includes("data-demo-reset"));
+ok("v16d2. 重置确认文案", appText.includes("确认重置演示数据？") && appText.includes("DEMO_RESET_TOAST"));
 ok("v15. app含rewardStudent", appText.includes("rewardStudent"));
 
 storage.saveState(st);
 const reloaded = storage.loadState();
 ok("积分. 刷新后持久化",
-  growthAssets.getParentWalletByRole(reloaded, fam.familyId, "father")?.balance === 10000
-  && growthAssets.getStudentWalletFromState(reloaded, fam.familyId, student.memberId)?.balance === 10000
+  growthAssets.getParentWalletByRole(reloaded, fam.familyId, "father")?.balance === 9500
+  && growthAssets.getStudentWalletFromState(reloaded, fam.familyId, student.memberId)?.balance === 10500
   && reloaded.growthMarket?.baseIndex === 4000);
 ok("积分. 权限-孩子不能自加分", !growthAssets.canStudentSelfCredit("student"));
 ok("积分. 权限-爸爸只能用爸爸钱包", growthAssets.canUseParentWallet("father", "father")
@@ -143,9 +147,9 @@ const stAfterFather = storage.loadState();
 const fatherAfter = growthAssets.getParentWalletByRole(stAfterFather, fam.familyId, "father");
 const studentAfterFather = growthAssets.getStudentWalletFromState(stAfterFather, fam.familyId, student.memberId);
 ok("流水. 爸爸加分扣爸爸钱包", rewardFather.ok
-  && fatherAfter?.balance === 9900
-  && studentAfterFather?.balance === 10100
-  && fatherAfter?.totalRewarded === 100);
+  && fatherAfter?.balance === 9400
+  && studentAfterFather?.balance === 10600
+  && fatherAfter?.totalRewarded === 600);
 ok("流水. 爸爸加分生成流水", (stAfterFather.pointTransactions || []).some(
   (t) => t.type === "reward" && t.points === 100 && t.affectsMarket === true && t.fromRole === "father",
 ));
@@ -159,8 +163,8 @@ const rewardMother = pointLedger.rewardStudent({
 });
 const stAfterMother = storage.loadState();
 ok("流水. 妈妈加分扣妈妈钱包", rewardMother.ok
-  && growthAssets.getParentWalletByRole(stAfterMother, fam.familyId, "mother")?.balance === 9950
-  && growthAssets.getStudentWalletFromState(stAfterMother, fam.familyId, student.memberId)?.balance === 10150);
+  && growthAssets.getParentWalletByRole(stAfterMother, fam.familyId, "mother")?.balance === 9450
+  && growthAssets.getStudentWalletFromState(stAfterMother, fam.familyId, student.memberId)?.balance === 10650);
 
 auth.loginAsUser(stuUserEarly.userId);
 const studentReward = pointLedger.rewardStudent({ parentRole: "father", points: 10 });
@@ -174,7 +178,7 @@ const deduct = pointLedger.deductStudent({
 });
 const stAfterDeduct = storage.loadState();
 const studentAfterDeduct = growthAssets.getStudentWalletFromState(stAfterDeduct, fam.familyId, student.memberId);
-ok("流水. 扣分减少孩子积分", deduct.ok && studentAfterDeduct?.balance === 10120);
+ok("流水. 扣分减少孩子积分", deduct.ok && studentAfterDeduct?.balance === 10620);
 ok("流水. 扣分不增加父母钱包", deduct.parentWalletsUnchanged
   && growthAssets.getParentWalletByRole(stAfterDeduct, fam.familyId, "father")?.balance === fatherBalBefore
   && growthAssets.getParentWalletByRole(stAfterDeduct, fam.familyId, "mother")?.balance === motherBalBefore);
@@ -187,7 +191,7 @@ const noAdvice = pointLedger.deductStudent({
 ok("流水. 扣分必须填写建议", !noAdvice.ok);
 
 const summary = pointLedger.getWalletSummary(fam.familyId);
-ok("流水. 钱包摘要", summary.student?.balance === 10120
+ok("流水. 钱包摘要", summary.student?.balance === 10620
   && summary.recentTransactions.length >= 3
   && summary.growthMarket?.baseIndex === 4000);
 
@@ -475,6 +479,32 @@ ok("v16c. 明日小目标记录", (storage.loadState().coachingActions || []).so
 // 训练恢复
 const restored = coach.restoreActiveSession(fam.familyId, mat.materialId);
 ok("训练刷新恢复(无进行中应为空)", restored === null);
+
+// v16-D2 演示重置
+const demoFatherUser = storage.loadState().users.find((u) => u.email === "demo@fuxun.local" && u.role === "father");
+ok("v16d2. 演示账号识别", demoMode.isDemoAccount(demoFatherUser));
+const resetR = await demoMode.resetDemoData({ preserveRole: "father" });
+ok("v16d2. 重置成功", resetR.ok);
+const rfam = auth.getFamily();
+const rstudent = auth.getStudentMember();
+const rmarket = growthMarket.getGrowthMarket(rfam.familyId, rstudent.memberId);
+ok("v16d2. 重置大盘5180", rmarket?.index === 5180 && rmarket?.level === "进阶星球");
+ok("v16d2. 重置涨跌", rmarket?.todayChange === 320
+  && (rmarket?.todayChangePct === 6.6 || rmarket?.todayChangePercent === 6.6));
+const rk = (storage.loadState().marketKlines || []).filter((k) => k.familyId === rfam.familyId);
+ok("v16d2. 重置K线7天", rk.length === 7 && [...rk].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.close === 5180);
+ok("v16d2. 家庭名称口号", rfam.familyName === "Daniel 的复训星球" && rfam.motto === "错题清零，星球升级。");
+const rh = honorItems.getHonorItems(rfam.familyId, { studentId: rstudent.memberId });
+ok("v16d2. 荣誉样例", rh.length >= 5
+  && rh.some((h) => h.itemType === "praise-letter")
+  && rh.some((h) => h.itemType === "certificate"));
+ok("v16d2. 优培记录", (storage.loadState().coachingActions || []).filter((a) => a.familyId === rfam.familyId).length >= 5);
+const rw = pointLedger.getWalletSummary(rfam.familyId);
+ok("v16d2. Ryan钱包9500", rw.father?.balance === 9500);
+ok("v16d2. Sara钱包9500", rw.mother?.balance === 9500);
+ok("v16d2. Daniel钱包10500", rw.student?.balance === 10500);
+const rrec = storage.getTodayRecord(rfam.familyId);
+ok("v16d2. 特别表现样例", rrec?.specialPerformance?.customDescription?.includes("Evidence"));
 
 console.log("\n=== 复训星球验收结果 ===");
 console.log(`通过: ${results.pass.length}`);

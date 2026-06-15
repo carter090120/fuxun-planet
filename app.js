@@ -18,6 +18,10 @@ import {
   getFamily, getMembers, enterAsMember,
 } from "./auth.js";
 import {
+  isDemoAccount, resetDemoData, regenerateDemoGrowthMarket, clearDemoTodayOperations,
+  DEMO_RESET_TOAST,
+} from "./demoMode.js";
+import {
   parseQuestionBank, parseDocxQuestionBank, buildMistakesFromAnswers,
   buildPhotoMistakes, photoImportStats, getMistakeReasonOptions,
 } from "./questionParser.js";
@@ -2988,6 +2992,42 @@ function bindProfileLogout(root) {
   });
 }
 
+function bindDemoTools(root) {
+  $("[data-demo-reset]", root)?.addEventListener("click", async () => {
+    if (!await showConfirm({
+      title: "确认重置演示数据？",
+      message: "这会把演示账号恢复到标准演示状态，方便重新给客户展示。",
+      confirmText: "确认重置",
+      danger: true,
+    })) return;
+    const prevRole = getCurrentRole();
+    const r = await resetDemoData({ preserveRole: prevRole });
+    if (!r.ok) return showToast(r.error, "error");
+    showToast(r.message || DEMO_RESET_TOAST);
+    navigate("/home");
+    render();
+  });
+  $("[data-demo-regen-market]", root)?.addEventListener("click", () => {
+    const r = regenerateDemoGrowthMarket();
+    if (!r.ok) return showToast(r.error, "error");
+    showToast(r.message || "成长大盘已重新生成");
+    render();
+  });
+  $("[data-demo-clear-today]", root)?.addEventListener("click", async () => {
+    if (!await showConfirm({
+      title: "清空今日操作记录？",
+      message: "将清除演示账号今天的优培、荣誉与积分流水记录（钱包今日计数归零）。",
+      confirmText: "确认清空",
+      danger: true,
+    })) return;
+    const r = clearDemoTodayOperations();
+    if (!r.ok) return showToast(r.error, "error");
+    showToast(r.message || "今日操作记录已清空");
+    render();
+  });
+  $("[data-demo-home]", root)?.addEventListener("click", () => navigate("/home"));
+}
+
 function renderProfileMenu(root) {
   const user = getCurrentUser();
   const fam = getFamily();
@@ -3032,12 +3072,26 @@ function renderProfileMenu(root) {
     }
   }
 
+  const demoTools = isDemoAccount(user) ? `<section class="planet-card demo-tools">
+    <p class="page-en">Demo Tools</p>
+    <h3>演示工具</h3>
+    <p class="hint">仅演示账号可见。一键恢复标准演示状态，方便给客户展示。</p>
+    <div class="action-list demo-tools__actions">
+      <button type="button" class="btn btn--primary btn--block" data-demo-reset>重置演示数据</button>
+      <button type="button" class="btn btn--sun btn--block" data-demo-regen-market>重新生成成长大盘</button>
+      <button type="button" class="btn btn--ghost btn--block" data-demo-clear-today>清空今日操作记录</button>
+      <button type="button" class="btn btn--ghost btn--block" data-demo-home>返回演示首页</button>
+    </div>
+  </section>` : "";
+
   root.innerHTML = shell("我的", "Profile Center", "", `
     ${profileHeroHTML(user, fam)}
+    ${demoTools}
     <div class="profile-menu">${cards.join("")}</div>
     <p class="version-pill" style="margin-top:16px;text-align:center">${APP_VERSION}</p>`, MODULE_SLOGANS.profile);
 
   bindProfileLogout(root);
+  bindDemoTools(root);
   root.querySelectorAll("[data-profile-go]").forEach((btn) => btn.addEventListener("click", () => {
     const sec = btn.dataset.profileGo;
     if (sec === "hearts") navigate("/hearts");
@@ -3250,7 +3304,7 @@ function renderProfileSection(root, section) {
       <button class="btn btn--ghost btn--block" id="ex-j">导出 JSON</button>
       <button class="btn btn--ghost btn--block" id="ex-c">导出 CSV</button>
       <label class="btn btn--ghost btn--block">导入 JSON<input type="file" id="im-j" accept="application/json" hidden /></label>
-      <button class="btn btn--ghost btn--block" id="seed">重置演示数据</button>
+      ${isDemoAccount(user) ? `<button class="btn btn--ghost btn--block" id="seed">重置演示数据</button>` : ""}
       <button class="btn btn--danger btn--block" id="clear">清空本地数据</button>
     </div></div>`);
     $("[data-back]", root).onclick = back;
@@ -3271,9 +3325,18 @@ function renderProfileSection(root, section) {
       if (f) { importJson(await f.text()); showToast("导入成功"); navigate("/profile"); }
     });
     $("#seed", root)?.addEventListener("click", async () => {
-      if (await showConfirm({ title: "重置演示数据", message: "将恢复演示家庭样例数据，确定继续吗？", confirmText: "重置", danger: true })) {
-        seedDemo(); showToast("演示数据已重置"); navigate("/home");
-      }
+      if (!await showConfirm({
+        title: "确认重置演示数据？",
+        message: "这会把演示账号恢复到标准演示状态，方便重新给客户展示。",
+        confirmText: "确认重置",
+        danger: true,
+      })) return;
+      const prevRole = getCurrentRole();
+      const r = await resetDemoData({ preserveRole: prevRole });
+      if (!r.ok) return showToast(r.error, "error");
+      showToast(r.message || DEMO_RESET_TOAST);
+      navigate("/home");
+      render();
     });
     $("#clear", root)?.addEventListener("click", async () => {
       if (await showConfirm({ title: "清空本地数据", message: "所有家庭、复训、打卡数据将被删除，不可恢复。", confirmText: "清空", danger: true })) {
