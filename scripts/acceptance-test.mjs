@@ -105,7 +105,7 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-ok("v15. SW含memberRoles与v16e1", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e1"));
+ok("v15. SW含memberRoles与v16e2", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e2"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -516,10 +516,13 @@ ok("v16d3. Sara引导", appText.includes("PAGE_GUIDES.mother") && appText.includ
 ok("v16d3. 荣誉室引导", appText.includes("PAGE_GUIDES.honor") && version.PAGE_GUIDES.honor("Daniel").includes("成长资产中心"));
 ok("v16d3. K线免责声明", growthMarket.GROWTH_DISCLAIMER.includes("不是真实投资") && appText.includes("renderKlineDisclaimer"));
 const manifestText = fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8");
-ok("v16e1. App版本v16-E1", version.APP_VERSION === "v16-E1");
-ok("v16e1. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e1" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e1"'));
+ok("v16e2. App版本v16-E2", version.APP_VERSION === "v16-E2");
+ok("v16e2. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e2" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e2"'));
 ok("v16e. SW含aiReferenceAnswer", swText.includes("aiReferenceAnswer.js"));
-ok("v16e1. manifest启动参数", manifestText.includes('"start_url": "./?v=16e1"'));
+ok("v16e2. manifest启动参数", manifestText.includes('"start_url": "./?v=16e2"'));
+ok("v16e2. 训练页grid分层", cssText.includes(".train-focus.train-play") && cssText.includes("grid-template-rows"));
+ok("v16e2. 进度与题号分离", appText.includes("train-meta-row") && cssText.includes(".train-meta-row"));
+ok("v16e2. safe-area横屏边距", cssText.includes("--safe-l") && cssText.includes("--safe-r"));
 ok("v16e. 特别表现卡片布局", spPerf.specialPerformanceHTML({ specialPerformance: { hasPerformance: "yes" } }).includes("special-choice-card"));
 ok("v16e. 特别表现CSS", cssText.includes(".special-choice-group") && cssText.includes(".special-choice-card.is-selected"));
 ok("v16e. 打卡sticky修复", cssText.includes(".page--checkin .checkin-sticky") && appText.includes("checkin-body"));

@@ -1122,12 +1122,14 @@ function renderTrainPlay(root) {
     </div>
     <div class="train-progress-row">
       <div class="train-progress"><i style="width:${prog.roundProgress}%"></i></div>
+    </div>
+    <div class="train-meta-row">
       <p class="train-meta">第 ${prog.rounds} 轮 · 正确率 ${prog.accuracy}% · 🔥${prog.streak}</p>
     </div>
-    <div id="train-landscape-hint" class="train-focus__landscape-hint hidden">
-      <strong>建议横屏答题</strong> · 题目和选项会更清楚
-    </div>
     <div class="train-stage">
+      <div id="train-landscape-hint" class="train-focus__landscape-hint hidden">
+        <strong>建议横屏答题</strong> · 题目和选项会更清楚
+      </div>
       <section class="train-question-panel">
         <span class="train-type-tag">${mistake?.questionType || "题型"}</span>
         <div class="train-stem-scroll"><p class="train-stem">${question?.stem || mistake?.stem || ""}</p></div>
@@ -3711,7 +3713,7 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=16e1`;
+  location.href = `${location.pathname}?v=16e2`;
 }
 
 function render() {
@@ -3772,7 +3774,7 @@ function bindGlobalHandlers() {
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.register("./service-worker.js?v=16e1");
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=16e2");
     if (reg.waiting && navigator.serviceWorker.controller) {
       reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }
