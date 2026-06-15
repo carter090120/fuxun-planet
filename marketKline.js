@@ -213,6 +213,10 @@ export function calculateMarketImpact(date, opts = {}) {
   const parent = sumParentPoints(transactions, date);
   const honorCrit = sumHonorAndCriticism(state, familyId, studentId, date, transactions);
   const emotion = calcEmotionImpact(rec);
+  const sp = rec?.specialPerformance;
+  const spImpact = sp?.hasPerformance && sp.hasPerformance !== "no"
+    ? Math.round((sp.suggestedPoints || 0) * 0.2)
+    : 0;
 
   const totalChange = Math.round(
     dailyScoreImpact
@@ -220,7 +224,8 @@ export function calculateMarketImpact(date, opts = {}) {
     + parent.parentPointImpact
     + honorCrit.honorImpact
     - honorCrit.criticismImpact
-    + emotion.impact,
+    + emotion.impact
+    + spImpact,
   );
 
   const impactFactors = [
@@ -230,6 +235,7 @@ export function calculateMarketImpact(date, opts = {}) {
     { label: "荣誉影响", value: Math.round(honorCrit.honorImpact * 10) / 10, sign: 1 },
     { label: "批评影响", value: Math.round(honorCrit.criticismImpact * 10) / 10, sign: -1 },
     { label: "情绪修正", value: emotion.impact, sign: emotion.impact >= 0 ? 1 : -1 },
+    ...(spImpact ? [{ label: "特别表现", value: spImpact, sign: 1 }] : []),
     ...parent.factors,
     ...honorCrit.factors,
   ];
@@ -318,7 +324,7 @@ function syncGrowthMarketFromKline(state, kline) {
 
   const history = getKlinesFromState(state, kline.familyId, kline.studentId)
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-7)
+    .slice(-15)
     .map((k) => ({
       dateKey: k.date,
       open: k.open,

@@ -1,9 +1,9 @@
-/** 复训星球 v16-E5 版本信息（父母工作台卡片顺序优化） */
-export const APP_VERSION = "v16-E5";
+/** 复训星球 v16-E6 版本信息（成长大盘红绿 K 线） */
+export const APP_VERSION = "v16-E6";
 export const APP_NAME = "复训星球";
 export const APP_TAGLINE = "错题复训清零，家庭陪伴成长。";
-export const SW_CACHE_ID = "fuxun-planet-v16e5";
-export const DEMO_CACHE_BUST = "16e5";
+export const SW_CACHE_ID = "fuxun-planet-v16e6";
+export const DEMO_CACHE_BUST = "16e6";
 
 export const MODULE_SLOGANS = {
   home: APP_TAGLINE,

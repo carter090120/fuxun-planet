@@ -36,8 +36,11 @@ import {
   getRecentHearts, replyToNotification,
 } from "./notifications.js";
 import { buildParentSummary, trainingSummaryText } from "./parentSummary.js";
-import { drawBarChart, drawRing, drawGrowthKline, drawInvestmentKline } from "./charts.js";
-import { getGrowthMarket, formatChange, GROWTH_DISCLAIMER, getLevelName } from "./growthMarket.js";
+import { drawBarChart, drawRing, drawGrowthKline, drawInvestmentKline, mountGrowthKlineChart } from "./charts.js";
+import {
+  getGrowthMarket, ensureGrowthMarketData, getGrowthCandles, hasGrowthMarketData,
+  formatChange, formatChangeParts, GROWTH_DISCLAIMER, getLevelName,
+} from "./growthMarket.js";
 import {
   getParentWalletForViewer, getStudentWalletForViewer, getPointTransactionsForViewer,
   getWalletSummary, rewardStudent, deductStudent,
@@ -362,7 +365,7 @@ function renderHome(root) {
   const fam = getFamily();
   const user = getCurrentUser();
   const student = getStudentMember();
-  const gm = getGrowthMarket(user?.familyId, student?.memberId);
+  const gm = ensureGrowthMarketData(user?.familyId, student?.memberId);
   const members = getMembers().sort((a, b) => {
     const o = { father: 0, mother: 1, student: 2 };
     return o[a.role] - o[b.role];
@@ -383,6 +386,7 @@ function renderHome(root) {
     </header>
     ${!st.checkedIn && getCurrentRole() === "student" ? RemindCard(EMPTY_HINTS.checkin, "✅") : ""}
     ${unread && getCurrentRole() === "student" ? `<button type="button" class="alert-heart" data-go="/hearts">💛 你有 ${unread} 条爱心提醒，点击查看</button>` : ""}
+    ${student && hasGrowthMarketData(gm, user?.familyId) ? renderGrowthDashboard(student, gm, { familyId: user?.familyId, compact: true, canvasId: "home-growth-kline" }) : ""}
     <div class="member-list">${members.map((m) => renderMemberHomeCard(m, st, gm)).join("")}</div></div>`;
 
   $("#logout-top", root)?.addEventListener("click", async () => {
@@ -390,6 +394,9 @@ function renderHome(root) {
       logout(); navigate("/welcome");
     }
   });
+  if (student && hasGrowthMarketData(gm, user?.familyId)) {
+    setTimeout(() => bindGrowthKlineCharts(root, getGrowthCandles(gm), "home-growth-kline"), 50);
+  }
   root.querySelectorAll("[data-enter]").forEach((b) => b.addEventListener("click", () => {
     const role = b.dataset.role;
     if (role === "father" || role === "mother") {
@@ -1510,7 +1517,7 @@ function renderStudent(root) {
   const user = getCurrentUser();
   const student = getStudentMember();
   const st = todayStatus();
-  const gm = getGrowthMarket(user?.familyId, student?.memberId);
+  const gm = ensureGrowthMarketData(user?.familyId, student?.memberId);
   const unread = getUnreadCount();
   const subjects = student?.subjectFocus?.length ? student.subjectFocus : ["SAT Reading", "Math", "English"];
   const planetLevel = gm?.level || "成长星球";
@@ -1543,9 +1550,11 @@ function renderStudent(root) {
       </div>
     </section>
     ${unread ? `<button type="button" class="alert-heart alert-heart--compact" data-go="/hearts">💛 ${unread} 条爱心提醒</button>` : ""}
+    ${renderGrowthDashboard(student, gm, { familyId: user?.familyId, compact: true, canvasId: "student-growth-kline" })}
     ${!st.checkedIn ? RemindCard(EMPTY_HINTS.checkin, "✅") : ""}`, "每天一张成长卡，看见一点点进步。");
 
   root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
+  setTimeout(() => bindGrowthKlineCharts(root, getGrowthCandles(gm), "student-growth-kline"), 50);
 }
 
 function renderCheckin(root) {
@@ -1761,15 +1770,42 @@ const CARD_STYLES = ["阳光鼓励", "温暖陪伴", "目标加油", "幽默轻�
 const REWARD_TYPES = ["精神鼓励", "物质奖励", "亲子活动", "明日特权", "学习方法卡"];
 const STAR_LABELS = ["今日努力程度", "今日专注程度", "今日复盘态度", "今日情绪管理", "家长总评"];
 
-function renderGrowthDashboard(student, gm) {
-  const name = student?.name || "孩子";
-  if (!gm?.history?.length) {
+const growthKlineMounts = new WeakMap();
+
+function bindGrowthKlineCharts(root, candles, canvasId = "growth-kline") {
+  const wrap = $(`#${canvasId}-wrap`, root) || $(`#${canvasId}`, root)?.parentElement;
+  if (!wrap || !candles?.length) return;
+  const prev = growthKlineMounts.get(wrap);
+  prev?.destroy?.();
+  const mount = mountGrowthKlineChart(wrap, candles, { height: 200, defaultScrollEnd: true });
+  growthKlineMounts.set(wrap, mount);
+}
+
+function renderGrowthFactors(gm) {
+  const factors = (gm.todayFactors || []).map((f) => {
+    if (f.isText) return `<li><span>${f.label}</span><strong>${f.value}</strong></li>`;
+    const sign = f.sign >= 0 ? "+" : "";
+    return `<li><span>${f.label}</span><strong class="${f.sign >= 0 ? "is-up" : "is-down"}">${sign}${f.value}</strong></li>`;
+  }).join("");
+  const reasonLine = (gm.todayFactors || []).map((f) => f.label).join(" / ");
+  return `<div class="growth-factors"><h4>今日影响因素</h4>
+    ${factors ? `<ul>${factors}</ul>` : ""}
+    ${reasonLine ? `<p class="hint growth-factors__line">${reasonLine}</p>` : ""}</div>`;
+}
+
+function renderGrowthDashboard(student, gm, opts = {}) {
+  const name = student?.name || "Daniel";
+  const familyId = opts.familyId;
+  const compact = opts.compact;
+  const canvasId = opts.canvasId || "growth-kline";
+  const candles = getGrowthCandles(gm);
+
+  if (!hasGrowthMarketData(gm, familyId)) {
     return `<section class="growth-board growth-board--empty card-block">
       <div class="growth-board__head">${renderAvatar(student, "growth-board__avatar")}
         <div><h2 class="growth-board__title">${name} 的成长大盘</h2>
         <p class="growth-board__sub">爸爸妈妈的认可、提醒和孩子自己的努力，正在形成成长走势。</p></div>
       </div>
-      <h3>成长大盘</h3>
       ${EmptyCard("暂无成长大盘数据。完成一次打卡，或收到爸爸妈妈的优培积分后，就会生成第一条成长走势。", "📈")}
       <div class="action-list">
         <button type="button" class="btn btn--primary btn--block" data-go="/checkin">去打卡</button>
@@ -1778,30 +1814,42 @@ function renderGrowthDashboard(student, gm) {
       <p class="growth-disclaimer">${GROWTH_DISCLAIMER}</p></section>`;
   }
 
-  const chg = formatChange(gm.todayChange, gm.todayChangePct);
-  const factors = (gm.todayFactors || []).map((f) => {
-    if (f.isText) return `<li><span>${f.label}</span><strong>${f.value}</strong></li>`;
-    const sign = f.sign >= 0 ? "+" : "";
-    return `<li><span>${f.label}</span><strong class="${f.sign >= 0 ? "is-up" : "is-down"}">${sign}${f.value}</strong></li>`;
-  }).join("");
+  const chg = formatChangeParts(gm.todayChange, gm.todayChangePct ?? gm.todayChangePercent);
+  const dayCount = candles.length;
+
+  if (compact) {
+    return `<section class="growth-board growth-board--compact planet-card card-block">
+      <div class="growth-board__head growth-board__head--compact">
+        <div><h3 class="growth-board__title">${name} 的成长大盘</h3>
+        <p class="hint">指数 ${gm.index} · <span class="${chg.up ? "is-up" : "is-down"}">${chg.changeText}</span> · ${gm.level}</p></div>
+      </div>
+      <div class="growth-chart-wrap growth-chart-wrap--compact">
+        <div id="${canvasId}-wrap" class="growth-kline-host" data-growth-kline="${canvasId}"></div>
+      </div>
+      <p class="growth-disclaimer growth-disclaimer--compact">${GROWTH_DISCLAIMER}</p>
+    </section>`;
+  }
 
   return `<section class="growth-board planet-card card-block">
     <div class="growth-board__head">${renderAvatar(student, "growth-board__avatar")}
       <div><p class="page-en">Growth Market</p><h2 class="growth-board__title">${name} 的成长大盘</h2>
-      <p class="growth-board__sub">爸爸妈妈的认可、提醒和孩子自己的努力，正在形成成长走势。</p></div>
+      <p class="growth-board__sub">孩子学习成长积分模拟指数，记录打卡、复训、奖励与成长趋势。</p></div>
     </div>
-    <h3 class="growth-board__card-title">成长大盘</h3>
-    <div class="growth-stats">
-      <div class="growth-stat"><span>成长指数</span><strong class="growth-stat__big">${gm.index}</strong></div>
-      <div class="growth-stat"><span>今日涨跌</span><strong class="${chg.up ? "is-up" : "is-down"}">${chg.text}</strong></div>
-      <div class="growth-stat"><span>当前等级</span><strong>${gm.level}</strong></div>
+    <div class="growth-stats growth-stats--4">
+      <div class="growth-stat"><span>当前指数</span><strong class="growth-stat__big">${gm.index}</strong></div>
+      <div class="growth-stat"><span>今日涨跌</span><strong class="${chg.up ? "is-up" : "is-down"}">${chg.changeText}</strong></div>
+      <div class="growth-stat"><span>涨跌幅</span><strong class="${chg.up ? "is-up" : "is-down"}">${chg.pctText}</strong></div>
+      <div class="growth-stat"><span>等级</span><strong>${gm.level}</strong></div>
     </div>
     <div class="growth-chart-wrap">
-      <p class="growth-chart-label">大盘成长 K 线 <span>最近 7 天</span></p>
-      <canvas id="growth-kline" class="growth-kline" width="320" height="150" aria-label="大盘成长K线图"></canvas>
-      ${renderKlineDisclaimer()}
+      <p class="growth-chart-label">红绿 K 线图 <span>最近 ${dayCount} 天 · 红涨绿跌</span></p>
+      <div class="growth-kline-panel">
+        <div id="${canvasId}-wrap" class="growth-kline-host" data-growth-kline="${canvasId}"></div>
+      </div>
+      <p class="hint growth-chart-hint">点击或触摸 K 线查看当日开收、涨跌与影响因素</p>
     </div>
-    <div class="growth-factors"><h4>今日影响因素</h4><ul>${factors}</ul></div>
+    ${renderGrowthFactors(gm)}
+    <p class="growth-disclaimer">${GROWTH_DISCLAIMER}</p>
   </section>`;
 }
 
@@ -2069,13 +2117,13 @@ function renderCoach(root) {
   const student = getStudentMember();
   const father = getMembers().find((m) => m.role === "father");
   const mother = getMembers().find((m) => m.role === "mother");
-  const gm = getGrowthMarket(user?.familyId, student?.memberId);
+  const gm = ensureGrowthMarketData(user?.familyId, student?.memberId);
 
   let tail = "";
   if (role === "student" && !st.hasEncouragement) tail += EmptyCard(EMPTY_HINTS.hearts, "💛");
   tail += `<div class="coach-entry-list">${renderParentEntryCard(father, "father", role === "student")}${renderParentEntryCard(mother, "mother", role === "student")}</div>`;
 
-  const body = `${renderGrowthDashboard(student, gm)}
+  const body = `${renderGrowthDashboard(student, gm, { familyId: user?.familyId })}
     <div class="quick-actions quick-actions--coach">
       <button type="button" class="quick-action-btn btn btn--sun" data-go="/coach-honor">🏆 进入荣誉室</button>
     </div>
@@ -2091,9 +2139,7 @@ function renderCoach(root) {
   }));
   root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
   $("[data-invite-coach]", root)?.addEventListener("click", () => showToast("请邀请爸爸妈妈进入优培栏目发送鼓励", "info"));
-  if (gm?.history?.length) {
-    setTimeout(() => drawGrowthKline($("#growth-kline", root), gm.history, { animate: true }), 50);
-  }
+  setTimeout(() => bindGrowthKlineCharts(root, getGrowthCandles(gm), "growth-kline"), 50);
 }
 
 function renderHonorSection(title, items, emptyMsg, icon = "🏆") {
@@ -2129,7 +2175,7 @@ function renderCoachHonor(root) {
   const user = getCurrentUser();
   const role = getCurrentRole();
   const fid = user?.familyId;
-  const gm = getGrowthMarket(fid, student?.memberId);
+  const gm = ensureGrowthMarketData(fid, student?.memberId);
   const inv = gm?.investments?.[0];
   const wallet = getStudentWalletForViewer(fid, student?.memberId, role);
   const allHonor = getHonorItems(fid, { studentId: student?.memberId });
@@ -2140,13 +2186,7 @@ function renderCoachHonor(root) {
   root.innerHTML = shell(`${student?.name || "孩子"} 的荣誉室`, "Honor Room", "←", `
     ${renderHonorHero(student, gm, wallet, allHonor)}
     ${wallet && role !== "student" ? `<p class="hint">成长积分余额仅在孩子登录荣誉室时可见。</p>` : ""}
-    <section class="planet-card card-block">
-      <h3>成长大盘 K 线</h3>
-      <p class="hint">反映爸爸妈妈加分、点评和任务完成度。</p>
-      ${gm?.history?.length
-    ? `<canvas id="honor-market-kline" class="growth-kline" width="320" height="150"></canvas>${renderKlineDisclaimer()}`
-    : EmptyCard("暂无大盘数据", "📈")}
-    </section>
+    ${renderGrowthDashboard(student, gm, { familyId: fid, canvasId: "honor-market-kline" })}
     <section class="planet-card card-block">
       <h3>投资 K 线</h3>
       <p class="hint">${inv ? `目标：${inv.goal} · 投入 ${inv.invested} → 当前 ${inv.current}` : "把孩子积分投进目标后的模拟涨跌。"}</p>
@@ -2165,7 +2205,7 @@ function renderCoachHonor(root) {
 
   $("[data-back]", root).onclick = () => navigate("/coach");
   setTimeout(() => {
-    if (gm?.history?.length) drawGrowthKline($("#honor-market-kline", root), gm.history, { animate: true });
+    bindGrowthKlineCharts(root, getGrowthCandles(gm), "honor-market-kline");
     if (inv?.history?.length) drawInvestmentKline($("#honor-invest-kline", root), inv.history, { animate: true });
   }, 50);
 }

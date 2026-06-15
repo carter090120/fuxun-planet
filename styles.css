@@ -872,9 +872,47 @@ body.training-focus-mode--browser .train-focus__hint {
 .is-up { color: #15803d !important; }
 .is-down { color: #c2410c !important; }
 .growth-chart-wrap { margin: 8px 0 12px; }
+.growth-chart-wrap--compact { margin: 6px 0 8px; }
 .growth-chart-label { margin: 0 0 6px; font-size: 0.82rem; font-weight: 800; color: var(--navy); }
 .growth-chart-label span { color: var(--soft); font-weight: 600; margin-left: 6px; }
-.growth-kline { width: 100%; max-width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--line); }
+.growth-chart-hint { margin: 6px 0 0; font-size: 0.78rem; }
+.growth-kline-panel { position: relative; }
+.growth-kline-host,
+.growth-kline-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  max-width: 100%;
+}
+.growth-kline { display: block; height: 200px; max-height: 240px; min-height: 180px; }
+.growth-kline-tooltip {
+  position: absolute;
+  z-index: 4;
+  max-width: min(280px, calc(100vw - 32px));
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(23, 50, 77, 0.12);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+.growth-kline-tooltip.hidden { display: none; }
+.growth-kline-tooltip__reasons { color: var(--soft); word-break: break-word; }
+.growth-stats--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 520px) {
+  .growth-stats--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.growth-board--compact .growth-board__title { margin: 0; font-size: 1rem; }
+.growth-disclaimer--compact { margin: 8px 0 0; font-size: 0.72rem; }
+.growth-factors__line { margin: 6px 0 0; }
 .growth-factors h4 { margin: 0 0 8px; font-size: 0.86rem; }
 .growth-factors ul { margin: 0; padding: 0; list-style: none; }
 .growth-factors li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 0.84rem; }

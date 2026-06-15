@@ -105,7 +105,8 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-ok("v15. SW含memberRoles与v16e5", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e5"));
+const chartsText = fs.readFileSync(path.join(root, "charts.js"), "utf8");
+ok("v15. SW含memberRoles与v16e6", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16e6"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -495,7 +496,7 @@ ok("v16d2. 重置大盘5180", rmarket?.index === 5180 && rmarket?.level === "进
 ok("v16d2. 重置涨跌", rmarket?.todayChange === 320
   && (rmarket?.todayChangePct === 6.6 || rmarket?.todayChangePercent === 6.6));
 const rk = (storage.loadState().marketKlines || []).filter((k) => k.familyId === rfam.familyId);
-ok("v16d2. 重置K线7天", rk.length === 7 && [...rk].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.close === 5180);
+ok("v16d2. 重置K线15天", rk.length >= 15 && [...rk].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.close === 5180);
 ok("v16d2. 家庭名称口号", rfam.familyName === "Daniel 的复训星球" && rfam.motto === "错题清零，星球升级。");
 const rh = honorItems.getHonorItems(rfam.familyId, { studentId: rstudent.memberId });
 ok("v16d2. 荣誉样例", rh.length >= 5
@@ -516,10 +517,17 @@ ok("v16d3. Sara引导", appText.includes("PAGE_GUIDES.mother") && appText.includ
 ok("v16d3. 荣誉室引导", appText.includes("PAGE_GUIDES.honor") && version.PAGE_GUIDES.honor("Daniel").includes("成长资产中心"));
 ok("v16d3. K线免责声明", growthMarket.GROWTH_DISCLAIMER.includes("不是真实投资") && appText.includes("renderKlineDisclaimer"));
 const manifestText = fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8");
-ok("v16e5. App版本v16-E5", version.APP_VERSION === "v16-E5");
-ok("v16e5. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e5" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e5"'));
+ok("v16e6. App版本v16-E6", version.APP_VERSION === "v16-E6");
+ok("v16e6. SW与version同步", version.SW_CACHE_ID === "fuxun-planet-v16e6" && swText.includes('const CACHE_NAME = "fuxun-planet-v16e6"'));
 ok("v16e. SW含aiReferenceAnswer", swText.includes("aiReferenceAnswer.js"));
-ok("v16e5. manifest启动参数", manifestText.includes('"start_url": "./?v=16e5"'));
+ok("v16e6. manifest启动参数", manifestText.includes('"start_url": "./?v=16e6"'));
+ok("v16e6. 演示K线15天", growthMarket.DEMO_KLINE_DATA.length === 15);
+ok("v16e6. 红绿K线实现", chartsText.includes("mountGrowthKlineChart") && chartsText.includes("#ef4444") && chartsText.includes("#16a34a"));
+ok("v16e6. 无空状态判断", appText.includes("hasGrowthMarketData") && appText.includes("ensureGrowthMarketData"));
+ok("v16e6. 三处大盘渲染", appText.includes('canvasId: "honor-market-kline"') && appText.includes('canvasId: "student-growth-kline"') && appText.includes('canvasId: "home-growth-kline"'));
+ok("v16e6. 演示自动补种", appText.includes("ensureGrowthMarketData") && growthMarket.isDemoGrowthFamily(rfam.familyId));
+const demoCandles = growthMarket.getGrowthCandles(marketView);
+ok("v16e6. 演示有K线数据", demoCandles.length >= 15 && demoCandles.at(-1)?.close === 5180);
 ok("v16e5. 无AI建议独立卡", !appText.includes("AI 给爸爸的投资建议") && !appText.includes("AI 给妈妈的陪伴建议"));
 ok("v16e5. 关键结果置顶", appText.includes("今日关键结果") && appText.includes("workbench-digest"));
 ok("v16e5. AI轻提示", appText.includes("今日最值得爸爸看见") && appText.includes("今日最值得妈妈看见"));
