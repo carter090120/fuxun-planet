@@ -37,7 +37,7 @@ import { navigate, parseRoute, guardRoute, updateBottomNav } from "./router.js";
 import { generatePoster, sharePoster, downloadPoster } from "./poster.js";
 import { APP_VERSION, APP_TAGLINE, MODULE_SLOGANS, SW_CACHE_ID, EMPTY_HINTS } from "./version.js";
 import {
-  showToast, showConfirm, initConfirmDialog,
+  showToast, hideToast, showConfirm, initConfirmDialog,
   RegisterPageHero, RegisterNavHeader, bindStepBack, SectionTabs, bindSectionTabs,
   AvatarPickerHTML, bindAvatarPickers, FamilyBadgePickerHTML, bindFamilyBadgePicker,
   TagSelectHTML, bindTagSelects, SingleSelectHTML, InfoCard, FieldLabel,
@@ -587,7 +587,7 @@ function renderPhotoWizard(panel, onDone) {
     <div class="complete-card">
       <h2>🎉 拍图导入完成</h2>
       <p>今日题库已就绪，可以开始一题一屏复训。</p>
-      <button class="btn btn--primary btn--block" id="go-play">开始 Kahoot 复训</button>
+      <button class="btn btn--primary btn--block" id="go-play">开始复训</button>
       <button class="btn btn--ghost btn--block" id="go-reset">继续拍图导入</button>
     </div>`;
   $("#go-play", panel)?.addEventListener("click", () => onDone(true));
@@ -665,14 +665,17 @@ function renderTrain(root) {
           <label class="field"><span>来源说明</span><input name="sourceNote" placeholder="课后题库 / 错题讲义" /></label>
           ${isTxt ? "" : `<label class="field"><span>粘贴题库</span><textarea name="text" rows="5" placeholder="1. 题干...&#10;A. ...&#10;答案：C&#10;孩子答案：B"></textarea></label>`}
           ${isTxt ? `<label class="onboard-upload"><span>📄</span><span><strong>上传 TXT 文件</strong></span><input type="file" name="file" accept=".txt,text/plain" hidden /></label>` : ""}
-          <button class="btn btn--primary btn--block">导入今日资料</button></form>`;
+          <button class="btn btn--primary btn--block">${isTxt ? "导入资料" : "解析题库"}</button></form>`;
         $("#import-f", target).onsubmit = async (e) => {
           e.preventDefault();
           const fd = new FormData(e.target);
           let text = fd.get("text");
           const file = e.target.file?.files?.[0];
           if (file) text = await file.text();
-          if (!String(text).trim()) return showToast(isTxt ? "请上传 TXT 文件" : "请粘贴题目", "error");
+          if (!String(text).trim()) {
+            if (isTxt) return showToast("请上传 TXT 文件", "error");
+            return showToast("请粘贴题目", "error");
+          }
           const parsed = parseQuestionBank(text, { title: fd.get("title"), subject: fd.get("subject"), sourceNote: fd.get("sourceNote") });
           const user = getCurrentUser();
           const student = getStudentMember();
@@ -831,9 +834,11 @@ function renderTrain(root) {
       }
       const uPlay = getCurrentUser();
       const active = restoreActiveSession(uPlay?.familyId, todayMat?.materialId);
+      const canResume = active?.pool?.length && (active.paused || active.status === "paused_exit");
       panel.innerHTML = `<p class="hint">剩余错题 <strong>${active?.pool?.length ?? wrong.length}</strong> 道</p>
-        <button class="btn btn--primary btn--block" id="start-play">开始 Kahoot 复训</button>
-        ${active ? `<button class="btn btn--ghost btn--block" id="resume-play">继续训练</button>` : ""}`;
+        <p class="train-start-sub">像课堂闯关一样，把错题清零。</p>
+        <button class="btn btn--primary btn--block" id="start-play">开始复训</button>
+        ${canResume ? `<button class="btn btn--ghost btn--block" id="resume-play">继续训练</button>` : ""}`;
       $("#start-play", panel)?.addEventListener("click", () => {
         const u = getCurrentUser();
         const resumed = restoreActiveSession(u?.familyId, todayMat?.materialId);
@@ -888,13 +893,13 @@ function renderTrainPlay(root) {
 
   if (session.paused) {
     root.innerHTML = shell("训练暂停", "Paused", "", `<div class="pause-card">
-      ${InfoCard("进度已保存，随时可以继续训练。")}
+      ${InfoCard("训练已暂停，可稍后继续。")}
       <button class="btn btn--primary btn--block" id="resume">继续训练</button>
       <button class="btn btn--ghost btn--block" id="exit">退出训练</button>
       <button class="btn btn--ghost btn--block" data-go="/train">返回复训首页</button></div>`);
     $("#resume", root).onclick = () => { resumeTraining(session); render(); };
     $("#exit", root).onclick = async () => {
-      if (await showConfirm({ title: "退出训练", message: "退出后进度会保存，确定退出吗？", confirmText: "退出" })) {
+      if (await showConfirm({ title: "退出训练", message: "当前复训进度会保存，确定退出吗？", confirmText: "退出" })) {
         exitTraining(session); navigate("/train");
       }
     };
@@ -935,10 +940,10 @@ function renderTrainPlay(root) {
 
   root.innerHTML = `<div class="page page--kahoot">
     <div class="kahoot-top">
-      <button class="back-btn" id="pause">⏸ 暂停</button>
-      <button class="back-btn" id="home-train">复训首页</button>
-      <span>Q${qNum} · ${mistake?.questionType || ""} · 剩 ${prog.remaining} 错题</span>
-      <button class="back-btn" id="quit">退出</button>
+      <button class="back-btn" type="button" id="pause">⏸ 暂停</button>
+      <button class="back-btn" type="button" id="home-train">复训首页</button>
+      <button class="back-btn" type="button" id="quit">退出</button>
+      <span class="kahoot-top__info">Q${qNum} · ${mistake?.questionType || "题型"} · 剩余 ${prog.remaining} 错题</span>
     </div>
     <div class="kahoot-progress"><i style="width:${prog.roundProgress}%"></i></div>
     <p class="kahoot-meta">第 ${prog.rounds} 轮 · 正确率 ${prog.accuracy}% · 🔥${prog.streak}</p>
@@ -963,7 +968,7 @@ function renderTrainPlay(root) {
   $("#pause", root).onclick = () => { pauseTraining(session); render(); };
   $("#home-train", root).onclick = () => navigate("/train");
   $("#quit", root).onclick = async () => {
-    if (await showConfirm({ title: "退出训练", message: "退出后进度会保存，确定退出吗？", confirmText: "退出" })) {
+    if (await showConfirm({ title: "退出训练", message: "当前复训进度会保存，确定退出吗？", confirmText: "退出" })) {
       exitTraining(session); navigate("/train");
     }
   };
@@ -1569,29 +1574,189 @@ function parentProfileForm(member, role, prefix) {
     <button class="btn btn--ghost btn--block">保存${role === "father" ? "爸爸" : "妈妈"}资料</button></form>`;
 }
 
-function renderProfile(root) {
+const PROFILE_ROLE_LABELS = { father: "爸爸", mother: "妈妈", student: "孩子", admin: "管理员" };
+
+function isProfileAdmin(user) {
+  return user?.role === "admin";
+}
+
+function profileMenuCard(icon, title, desc, summary, section) {
+  return `<article class="profile-menu-card">
+    <span class="profile-menu-card__icon">${icon}</span>
+    <div class="profile-menu-card__body">
+      <strong>${title}</strong><p>${desc}</p>
+      ${summary ? `<p class="profile-menu-card__summary">${summary}</p>` : ""}
+    </div>
+    <button type="button" class="btn btn--ghost btn--sm" data-profile-go="${section}">进入</button>
+  </article>`;
+}
+
+function profileHeroHTML(user, fam) {
+  const member = getMembers().find((m) => m.memberId === user?.memberId);
+  const avatar = renderAvatar(member || { avatar: user?.role === "father" ? "👨" : user?.role === "mother" ? "👩" : "🧑‍🎓" });
+  return `<div class="profile-hero">
+    <span class="profile-hero__avatar">${avatar}</span>
+    <h2 class="profile-hero__name">${user?.name || "用户"}</h2>
+    <p class="profile-hero__role">${PROFILE_ROLE_LABELS[user?.role] || "成员"}</p>
+    <p class="profile-hero__family">${fam?.familyName || "我的家庭"}</p>
+    <button type="button" class="btn btn--danger btn--block" id="profile-logout-top" style="margin-top:14px">退出登录</button>
+  </div>`;
+}
+
+function bindProfileLogout(root) {
+  $("#profile-logout-top", root)?.addEventListener("click", async () => {
+    if (await showConfirm({ title: "退出登录", message: "确定退出当前账号？", confirmText: "退出", danger: true })) {
+      logout(); navigate("/welcome");
+    }
+  });
+}
+
+function renderProfileMenu(root) {
+  const user = getCurrentUser();
+  const fam = getFamily();
+  const student = getStudentMember();
+  const father = getMembers().find((m) => m.role === "father");
+  const mother = getMembers().find((m) => m.role === "mother");
+  const unread = getUnreadCount();
+  const role = user?.role;
+  const admin = isProfileAdmin(user);
+  const cards = [];
+
+  const selfMember = getMembers().find((m) => m.memberId === user?.memberId);
+  cards.push(profileMenuCard("👤", "我的账号", "管理头像、昵称、爱好和性格标签。",
+    selfMember?.name || user?.name, "account"));
+
+  if (role === "student") {
+    cards.push(profileMenuCard("🧑‍🎓", "孩子资料", "管理年级、学校、学习目标和主要科目。",
+      `${student?.grade || "未填年级"} · ${(student?.subjectFocus || []).slice(0, 2).join("、") || "未设科目"}`, "child"));
+    cards.push(profileMenuCard("💛", "爱心消息", "查看爸爸妈妈发来的鼓励卡和奖励。",
+      unread ? `${unread} 条未读` : "暂无未读", "hearts"));
+    cards.push(profileMenuCard("🔒", "隐私设置", "管理海报、分数、地点和心情显示权限。",
+      "仅与你相关的选项", "privacy"));
+  } else {
+    cards.push(profileMenuCard("🏡", "家庭资料", "管理家庭名称、徽章、口号和陪伴风格。",
+      fam?.familyName || "未命名家庭", "family"));
+    cards.push(profileMenuCard("🧑‍🎓", "孩子资料", "管理年级、学校、学习目标和主要科目。",
+      student?.name || "未填写", "child"));
+    cards.push(profileMenuCard("💛", "爱心消息", "查看与发送鼓励卡、奖励记录。",
+      unread ? `${unread} 条未读` : "查看记录", "hearts"));
+    cards.push(profileMenuCard("🔒", "隐私设置", "管理海报、分数、地点和心情显示权限。",
+      "家庭共享设置", "privacy"));
+    cards.push(profileMenuCard("💾", "数据管理", "导出、导入、重置或清空数据。",
+      "含危险操作确认", "data"));
+    if (admin) {
+      cards.push(profileMenuCard("👨", "爸爸资料", "管理员查看与编辑爸爸个人资料。",
+        father?.name || "未填写", "father"));
+      cards.push(profileMenuCard("👩", "妈妈资料", "管理员查看与编辑妈妈个人资料。",
+        mother?.name || "未填写", "mother"));
+    }
+  }
+
+  root.innerHTML = shell("我的", "Profile Center", "", `
+    ${profileHeroHTML(user, fam)}
+    <div class="profile-menu">${cards.join("")}</div>
+    <p class="version-pill" style="margin-top:16px;text-align:center">${APP_VERSION}</p>`, MODULE_SLOGANS.profile);
+
+  bindProfileLogout(root);
+  root.querySelectorAll("[data-profile-go]").forEach((btn) => btn.addEventListener("click", () => {
+    const sec = btn.dataset.profileGo;
+    if (sec === "hearts") navigate("/hearts");
+    else navigate(`/profile/${sec}`);
+  }));
+}
+
+function renderProfileSection(root, section) {
   const user = getCurrentUser();
   const fam = getFamily();
   const student = getStudentMember();
   const father = getMembers().find((m) => m.role === "father");
   const mother = getMembers().find((m) => m.role === "mother");
   const priv = getPrivacy();
-  const unread = getUnreadCount();
-  const styleLabel = COACHING_STYLES.find((s) => s.id === fam?.coachingStyle)?.label || "平衡型";
+  const role = user?.role;
+  const admin = isProfileAdmin(user);
+  const titles = {
+    account: "我的账号", family: "家庭资料", child: "孩子资料",
+    father: "爸爸资料", mother: "妈妈资料", privacy: "隐私设置", data: "数据管理",
+  };
+  const back = () => navigate("/profile");
 
-  root.innerHTML = shell("我的", "Profile & Settings", "", `
-    <p class="version-pill">${APP_VERSION}</p>
-    <button class="btn btn--sun btn--block" data-go="/hearts">💛 爱心消息${unread ? ` (${unread})` : ""}</button>
-    <form class="form card-block" id="fam-f"><h3>家庭资料</h3>
+  if (section === "account") {
+    const member = getMembers().find((m) => m.memberId === user?.memberId);
+    if (role === "student") {
+      root.innerHTML = shell(titles.account, "", "←", `<form class="form card-block" id="acct-f">
+        <label class="field"><span>姓名</span><input name="name" value="${member?.name || ""}" /></label>
+        <label class="field"><span>昵称</span><input name="nickname" value="${member?.nickname || ""}" /></label>
+        ${AvatarPickerHTML({ name: "childAvatar", value: member?.avatar || "🧑‍🎓", imageValue: member?.avatarImage || "", label: "头像", presets: AVATAR_PRESETS.child })}
+        ${TagSelectHTML({ name: "childHobbies", label: "爱好", presets: REG_PRESETS.childHobbies, selected: member?.hobbies })}
+        ${TagSelectHTML({ name: "childTags", label: "性格标签", presets: REG_PRESETS.childTags, selected: member?.personalityTags })}
+        <button class="btn btn--primary btn--block">保存我的账号</button></form>`);
+      bindAvatarPickers(root);
+      bindTagSelects(root);
+      $("[data-back]", root).onclick = back;
+      $("#acct-f", root)?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        updateMember(member.memberId, {
+          name: fd.get("name"), nickname: fd.get("nickname"),
+          avatar: fd.get("childAvatar"), avatarImage: fd.get("childAvatarImage") || "",
+          avatarType: fd.get("childAvatarType"), avatarValue: fd.get("childAvatarValue"),
+          hobbies: tagList(fd.get("childHobbies")), personalityTags: tagList(fd.get("childTags")),
+        });
+        showToast("资料已保存"); navigate("/profile");
+      });
+      return;
+    }
+    const prefix = role === "father" ? "dad" : "mom";
+    const parentRole = role === "father" ? "father" : "mother";
+    const parentMember = role === "father" ? father : mother;
+    root.innerHTML = shell(titles.account, "", "←", parentProfileForm(parentMember, parentRole, prefix));
+    bindAvatarPickers(root);
+    bindTagSelects(root);
+    $("[data-back]", root).onclick = back;
+    $(`#${prefix}-f`, root)?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      updateMember(parentMember.memberId, {
+        name: fd.get("name"), avatar: fd.get(`${prefix}Avatar`),
+        avatarImage: fd.get(`${prefix}AvatarImage`) || "",
+        avatarType: fd.get(`${prefix}AvatarType`) || "emoji",
+        avatarValue: fd.get(`${prefix}AvatarValue`) || fd.get(`${prefix}Avatar`),
+        hobbies: tagList(fd.get(`${prefix}Hobbies`)),
+        personalityTags: tagList(fd.get(`${prefix}Tags`)),
+        coachingStyle: tagList(fd.get(`${prefix}Companion`)),
+        defaultEncourageStyle: fd.get("encourageStyle"),
+      });
+      showToast("资料已保存"); navigate("/profile");
+    });
+    return;
+  }
+
+  if (section === "family" && role !== "student") {
+    const styleLabel = COACHING_STYLES.find((s) => s.id === fam?.coachingStyle)?.label || "平衡型";
+    root.innerHTML = shell(titles.family, "", "←", `<form class="form card-block" id="fam-f">
       <label class="field"><span>家庭名称</span><input name="familyName" value="${fam?.familyName || ""}" /></label>
       ${FamilyBadgePickerHTML({ value: fam?.badge || "🪐", imageValue: fam?.badgeImage || "", badgeId: fam?.badgeId, badgeType: fam?.badgeType, badgeValue: fam?.badgeValue })}
       <label class="field"><span>家庭口号</span><input name="motto" value="${fam?.motto || ""}" /></label>
       <label class="field"><span>家庭陪伴风格</span><select name="coachingStyle">${COACHING_STYLES.map((s) => `<option value="${s.id}" ${fam?.coachingStyle === s.id ? "selected" : ""}>${s.label}</option>`).join("")}</select></label>
       <p class="field-hint">当前：${styleLabel}</p>
-      <button class="btn btn--ghost btn--block">保存家庭资料</button></form>
-    ${parentProfileForm(father, "father", "dad")}
-    ${parentProfileForm(mother, "mother", "mom")}
-    <form class="form card-block" id="stu-f"><h3>孩子资料</h3>
+      <button class="btn btn--primary btn--block">保存家庭资料</button></form>`);
+    bindFamilyBadgePicker(root);
+    $("[data-back]", root).onclick = back;
+    $("#fam-f", root)?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      updateFamily(fam.familyId, {
+        familyName: fd.get("familyName"), motto: fd.get("motto"), familyMotto: fd.get("motto"),
+        coachingStyle: fd.get("coachingStyle"), badge: fd.get("badge"), badgeImage: fd.get("badgeImage") || "",
+        badgeId: fd.get("badgeId"), badgeType: fd.get("badgeType"), badgeValue: fd.get("badgeValue"), familyBadge: fd.get("badge"),
+      });
+      showToast("家庭资料已保存"); navigate("/profile");
+    });
+    return;
+  }
+
+  if (section === "child") {
+    root.innerHTML = shell(titles.child, "", "←", `<form class="form card-block" id="stu-f">
       <label class="field"><span>姓名</span><input name="name" value="${student?.name || ""}" /></label>
       <label class="field"><span>昵称</span><input name="nickname" value="${student?.nickname || ""}" /></label>
       ${AvatarPickerHTML({ name: "childAvatar", value: student?.avatar || "🧑‍🎓", imageValue: student?.avatarImage || "", label: "头像", presets: AVATAR_PRESETS.child })}
@@ -1602,129 +1767,125 @@ function renderProfile(root) {
       <label class="field"><span>学习目标</span><input name="learningGoal" value="${student?.learningGoal || ""}" /></label>
       ${TagSelectHTML({ name: "childSubjects", label: "主要科目", presets: REG_PRESETS.childSubjects, selected: student?.subjectFocus })}
       ${SingleSelectHTML({ name: "parentResponsePref", label: "希望爸爸妈妈怎么回应", options: PARENT_RESPONSE_PREFS, value: student?.parentResponsePref })}
-      <button class="btn btn--ghost btn--block">保存孩子资料</button></form>
-    <div class="card-block"><h3>隐私设置</h3>
+      <button class="btn btn--primary btn--block">保存孩子资料</button></form>`);
+    bindAvatarPickers(root);
+    bindTagSelects(root);
+    $("[data-back]", root).onclick = back;
+    $("#stu-f", root)?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      updateMember(student.memberId, {
+        name: fd.get("name"), nickname: fd.get("nickname"), grade: fd.get("grade"), school: fd.get("school"),
+        avatar: fd.get("childAvatar"), avatarImage: fd.get("childAvatarImage") || "",
+        avatarType: fd.get("childAvatarType"), avatarValue: fd.get("childAvatarValue"),
+        hobbies: tagList(fd.get("childHobbies")), personalityTags: tagList(fd.get("childTags")),
+        learningGoal: fd.get("learningGoal"), subjectFocus: tagList(fd.get("childSubjects")),
+        parentResponsePref: fd.get("parentResponsePref"),
+      });
+      showToast("孩子资料已保存"); navigate("/profile");
+    });
+    return;
+  }
+
+  if ((section === "father" || section === "mother") && admin) {
+    const parentRole = section;
+    const prefix = section === "father" ? "dad" : "mom";
+    const member = section === "father" ? father : mother;
+    root.innerHTML = shell(titles[section], "", "←", parentProfileForm(member, parentRole, prefix));
+    bindAvatarPickers(root);
+    bindTagSelects(root);
+    $("[data-back]", root).onclick = back;
+    $(`#${prefix}-f`, root)?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      updateMember(member.memberId, {
+        name: fd.get("name"), avatar: fd.get(`${prefix}Avatar`),
+        avatarImage: fd.get(`${prefix}AvatarImage`) || "",
+        avatarType: fd.get(`${prefix}AvatarType`) || "emoji",
+        avatarValue: fd.get(`${prefix}AvatarValue`) || fd.get(`${prefix}Avatar`),
+        hobbies: tagList(fd.get(`${prefix}Hobbies`)),
+        personalityTags: tagList(fd.get(`${prefix}Tags`)),
+        coachingStyle: tagList(fd.get(`${prefix}Companion`)),
+        defaultEncourageStyle: fd.get("encourageStyle"),
+      });
+      showToast("资料已保存"); navigate("/profile");
+    });
+    return;
+  }
+
+  if (section === "privacy") {
+    const studentOnly = role === "student";
+    root.innerHTML = shell(titles.privacy, "", "←", `<div class="card-block">
       <label class="toggle"><input type="checkbox" id="p-sc" ${priv.showScores !== false ? "checked" : ""} /><span>海报显示分数</span></label>
       <label class="toggle"><input type="checkbox" id="p-loc" ${priv.showLocation !== false ? "checked" : ""} /><span>海报显示地点</span></label>
       <label class="toggle"><input type="checkbox" id="p-selfie" ${priv.showSelfie !== false ? "checked" : ""} /><span>海报显示头像</span></label>
-      <label class="toggle"><input type="checkbox" id="p-mood" ${priv.allowHideMood !== false ? "checked" : ""} /><span>允许孩子隐藏心情</span></label>
-      <label class="toggle"><input type="checkbox" id="p-mist" ${priv.allowParentMistakeDetail !== false ? "checked" : ""} /><span>允许家长查看错题明细</span></label>
-      <label class="toggle"><input type="checkbox" id="p-export" ${priv.allowExport !== false ? "checked" : ""} /><span>允许导出数据</span></label>
-    </div>
-    <div class="card-block"><h3>数据管理</h3>
-      <div class="action-list">
-        <button class="btn btn--ghost btn--block" id="ex-j">导出 JSON</button>
-        <button class="btn btn--ghost btn--block" id="ex-c">导出 CSV</button>
-        <label class="btn btn--ghost btn--block">导入 JSON<input type="file" id="im-j" accept="application/json" hidden /></label>
-        <button class="btn btn--ghost btn--block" id="seed">重置演示数据</button>
-        <button class="btn btn--danger btn--block" id="clear">清空本地数据</button>
-        <button class="btn btn--danger btn--block" id="logout">退出登录</button>
-      </div>
-    </div>`, MODULE_SLOGANS.profile);
+      <label class="toggle"><input type="checkbox" id="p-mood" ${priv.allowHideMood !== false ? "checked" : ""} /><span>允许隐藏心情</span></label>
+      ${studentOnly ? "" : `<label class="toggle"><input type="checkbox" id="p-mist" ${priv.allowParentMistakeDetail !== false ? "checked" : ""} /><span>允许家长查看错题明细</span></label>
+      <label class="toggle"><input type="checkbox" id="p-export" ${priv.allowExport !== false ? "checked" : ""} /><span>允许导出数据</span></label>`}
+    </div>`);
+    $("[data-back]", root).onclick = back;
+    const savePriv = () => {
+      const patch = {
+        showScores: $("#p-sc", root).checked,
+        showLocation: $("#p-loc", root).checked,
+        showSelfie: $("#p-selfie", root).checked,
+        allowHideMood: $("#p-mood", root).checked,
+      };
+      if (!studentOnly) {
+        patch.allowParentMistakeDetail = $("#p-mist", root).checked;
+        patch.allowExport = $("#p-export", root).checked;
+      }
+      savePrivacy(patch);
+      showToast("隐私设置已保存");
+    };
+    ["#p-sc", "#p-loc", "#p-selfie", "#p-mood", "#p-mist", "#p-export"].forEach((s) => $(s, root)?.addEventListener("change", savePriv));
+    return;
+  }
 
-  bindAvatarPickers(root);
-  bindFamilyBadgePicker(root);
-  bindTagSelects(root);
-  root.querySelector("[data-go]")?.addEventListener("click", () => navigate("/hearts"));
+  if (section === "data" && role !== "student") {
+    root.innerHTML = shell(titles.data, "", "←", `<div class="card-block"><div class="action-list">
+      <button class="btn btn--ghost btn--block" id="ex-j">导出 JSON</button>
+      <button class="btn btn--ghost btn--block" id="ex-c">导出 CSV</button>
+      <label class="btn btn--ghost btn--block">导入 JSON<input type="file" id="im-j" accept="application/json" hidden /></label>
+      <button class="btn btn--ghost btn--block" id="seed">重置演示数据</button>
+      <button class="btn btn--danger btn--block" id="clear">清空本地数据</button>
+    </div></div>`);
+    $("[data-back]", root).onclick = back;
+    $("#ex-j", root)?.addEventListener("click", () => {
+      if (!getPrivacy().allowExport) return showToast("导出功能已在隐私设置中关闭", "error");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([exportJson()], { type: "application/json" }));
+      a.download = "fuxun-export.json"; a.click();
+    });
+    $("#ex-c", root)?.addEventListener("click", () => {
+      if (!getPrivacy().allowExport) return showToast("导出功能已在隐私设置中关闭", "error");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([exportCsv()], { type: "text/csv" }));
+      a.download = "fuxun-records.csv"; a.click();
+    });
+    $("#im-j", root)?.addEventListener("change", async (e) => {
+      const f = e.target.files?.[0];
+      if (f) { importJson(await f.text()); showToast("导入成功"); navigate("/profile"); }
+    });
+    $("#seed", root)?.addEventListener("click", async () => {
+      if (await showConfirm({ title: "重置演示数据", message: "将恢复演示家庭样例数据，确定继续吗？", confirmText: "重置", danger: true })) {
+        seedDemo(); showToast("演示数据已重置"); navigate("/home");
+      }
+    });
+    $("#clear", root)?.addEventListener("click", async () => {
+      if (await showConfirm({ title: "清空本地数据", message: "所有家庭、复训、打卡数据将被删除，不可恢复。", confirmText: "清空", danger: true })) {
+        clearAllData(); navigate("/welcome");
+      }
+    });
+    return;
+  }
 
-  const saveParent = (e, member, prefix) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    updateMember(member.memberId, {
-      name: fd.get("name"),
-      avatar: fd.get(`${prefix}Avatar`),
-      avatarImage: fd.get(`${prefix}AvatarImage`) || "",
-      avatarType: fd.get(`${prefix}AvatarType`) || "emoji",
-      avatarValue: fd.get(`${prefix}AvatarValue`) || fd.get(`${prefix}Avatar`),
-      hobbies: tagList(fd.get(`${prefix}Hobbies`)),
-      personalityTags: tagList(fd.get(`${prefix}Tags`)),
-      coachingStyle: tagList(fd.get(`${prefix}Companion`)),
-      defaultEncourageStyle: fd.get("encourageStyle"),
-    });
-    showToast("资料已保存");
-  };
-  $("#dad-f", root)?.addEventListener("submit", (e) => father && saveParent(e, father, "dad"));
-  $("#mom-f", root)?.addEventListener("submit", (e) => mother && saveParent(e, mother, "mom"));
+  navigate("/profile");
+}
 
-  $("#fam-f", root)?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    updateFamily(fam.familyId, {
-      familyName: fd.get("familyName"),
-      motto: fd.get("motto"),
-      familyMotto: fd.get("motto"),
-      coachingStyle: fd.get("coachingStyle"),
-      badge: fd.get("badge"),
-      badgeImage: fd.get("badgeImage") || "",
-      badgeId: fd.get("badgeId"),
-      badgeType: fd.get("badgeType"),
-      badgeValue: fd.get("badgeValue"),
-      familyBadge: fd.get("badge"),
-    });
-    showToast("家庭资料已保存");
-  });
-  $("#stu-f", root)?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    updateMember(student.memberId, {
-      name: fd.get("name"),
-      nickname: fd.get("nickname"),
-      grade: fd.get("grade"),
-      school: fd.get("school"),
-      avatar: fd.get("childAvatar"),
-      avatarImage: fd.get("childAvatarImage") || "",
-      avatarType: fd.get("childAvatarType"),
-      avatarValue: fd.get("childAvatarValue"),
-      hobbies: tagList(fd.get("childHobbies")),
-      personalityTags: tagList(fd.get("childTags")),
-      learningGoal: fd.get("learningGoal"),
-      subjectFocus: tagList(fd.get("childSubjects")),
-      parentResponsePref: fd.get("parentResponsePref"),
-    });
-    showToast("孩子资料已保存");
-  });
-  const savePriv = () => savePrivacy({
-    showScores: $("#p-sc", root).checked,
-    showLocation: $("#p-loc", root).checked,
-    showSelfie: $("#p-selfie", root).checked,
-    allowHideMood: $("#p-mood", root).checked,
-    allowParentMistakeDetail: $("#p-mist", root).checked,
-    allowExport: $("#p-export", root).checked,
-  });
-  ["#p-sc", "#p-loc", "#p-selfie", "#p-mood", "#p-mist", "#p-export"].forEach((s) => $(s, root)?.addEventListener("change", savePriv));
-  $("#ex-j", root)?.addEventListener("click", () => {
-    if (!getPrivacy().allowExport) return showToast("导出功能已在隐私设置中关闭", "error");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([exportJson()], { type: "application/json" }));
-    a.download = "fuxun-export.json";
-    a.click();
-  });
-  $("#ex-c", root)?.addEventListener("click", () => {
-    if (!getPrivacy().allowExport) return showToast("导出功能已在隐私设置中关闭", "error");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([exportCsv()], { type: "text/csv" }));
-    a.download = "fuxun-records.csv";
-    a.click();
-  });
-  $("#im-j", root)?.addEventListener("change", async (e) => {
-    const f = e.target.files?.[0];
-    if (f) { importJson(await f.text()); showToast("导入成功"); render(); }
-  });
-  $("#seed", root)?.addEventListener("click", async () => {
-    if (await showConfirm({ title: "重置演示数据", message: "将恢复演示家庭样例数据，确定继续吗？", confirmText: "重置" })) {
-      seedDemo(); showToast("演示数据已重置：Daniel 家庭 + SAT 题库"); navigate("/home");
-    }
-  });
-  $("#clear", root)?.addEventListener("click", async () => {
-    if (await showConfirm({ title: "清空本地数据", message: "所有家庭、复训、打卡数据将被删除，不可恢复。", confirmText: "清空", danger: true })) {
-      clearAllData(); navigate("/welcome");
-    }
-  });
-  $("#logout", root)?.addEventListener("click", async () => {
-    if (await showConfirm({ title: "退出登录", message: "确定退出当前账号？", confirmText: "退出", danger: true })) {
-      logout(); navigate("/welcome");
-    }
-  });
+function renderProfile(root, section) {
+  if (section) renderProfileSection(root, section);
+  else renderProfileMenu(root);
 }
 
 function renderPoster(root, id) {
@@ -1830,11 +1991,12 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=9`;
+  location.href = `${location.pathname}?v=10`;
 }
 
 function render() {
   try {
+    hideToast();
     const route = parseRoute();
     if (!guardRoute(route.path)) return;
     const root = $("#app-root");
@@ -1842,6 +2004,7 @@ function render() {
     const fn = ROUTES[route.path] || renderBoot;
     if (route.path === "poster") fn(root, route.id);
     else if (route.path === "coach-parent") fn(root, route.id || getCurrentRole());
+    else if (route.path === "profile") fn(root, route.id);
     else fn(root);
     updateBottomNav(route, root, navigate, getUnreadCount());
   } catch (err) {
@@ -1883,7 +2046,7 @@ function bindGlobalHandlers() {
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.register("./service-worker.js?v=9");
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=10");
     if (reg.waiting && navigator.serviceWorker.controller) {
       reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }

@@ -12,6 +12,7 @@
   --card: #ffffff;
   --max: 680px;
   --nav-h: 68px;
+  --bottom-nav-height: var(--nav-h);
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
@@ -192,16 +193,27 @@ body.has-nav { padding-bottom: calc(var(--nav-h) + 48px + var(--safe-b)); }
 .btn--danger { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
 .btn--launch { min-height: 52px; }
 
-/* Kahoot training */
+/* Immersive training */
+body.train-immersive { padding-bottom: calc(12px + var(--safe-b)); }
 .page--kahoot {
-  min-height: 80vh; display: flex; flex-direction: column;
-  padding-bottom: calc(16px + var(--safe-b));
+  min-height: calc(100dvh - 24px - var(--safe-t));
+  display: flex; flex-direction: column;
+  padding-bottom: calc(88px + var(--safe-b));
 }
-.kahoot-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.82rem; font-weight: 700; }
+.kahoot-top {
+  position: sticky; top: calc(4px + var(--safe-t)); z-index: 25;
+  display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center;
+  margin-bottom: 10px; padding: 8px 10px; border-radius: 14px;
+  background: rgba(255,255,255,0.92); border: 1px solid var(--line);
+  box-shadow: 0 6px 16px rgba(59,130,246,0.08);
+  font-size: 0.78rem; font-weight: 700;
+}
+.kahoot-top__info { flex: 1 1 100%; text-align: center; color: var(--blue); font-size: 0.8rem; }
+.kahoot-top .back-btn { padding: 8px 10px; font-size: 0.76rem; }
 .kahoot-progress { height: 8px; border-radius: 999px; background: #e2e8f0; margin-bottom: 16px; overflow: hidden; }
 .kahoot-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--sun), var(--orange)); transition: width 0.3s; }
 .kahoot-type { margin: 0 0 8px; font-size: 0.82rem; font-weight: 800; color: var(--blue); }
-.kahoot-stem { margin: 0 0 20px; font-size: 1.15rem; line-height: 1.45; flex: 1; }
+.kahoot-stem { margin: 0 0 16px; font-size: 1.22rem; line-height: 1.5; flex: 1; font-weight: 800; }
 .kahoot-opts { display: grid; gap: 12px; }
 .kahoot-opt {
   min-height: 72px; border: none; border-radius: 16px; padding: 14px 16px;
@@ -263,8 +275,36 @@ body.has-nav { padding-bottom: calc(var(--nav-h) + 48px + var(--safe-b)); }
 
 /* Training footer */
 .kahoot-meta { margin: 0 0 12px; font-size: 0.8rem; color: var(--soft); font-weight: 700; }
-.train-footer { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.train-footer {
+  position: fixed; left: 12px; right: 12px; bottom: 0; z-index: 30;
+  max-width: calc(var(--max) - 24px); margin: 0 auto;
+  padding: 10px 0 calc(12px + var(--safe-b));
+  background: linear-gradient(180deg, transparent, rgba(243,247,255,0.96) 24%, rgba(243,247,255,0.98));
+  display: flex; flex-direction: column; gap: 8px;
+}
 .train-footer__nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.train-start-sub { margin: 0 0 12px; text-align: center; color: var(--soft); font-size: 0.86rem; }
+
+/* Profile menu cards */
+.profile-hero {
+  text-align: center; padding: 18px 12px 20px; margin-bottom: 14px;
+  border-radius: 20px; background: var(--card); border: 1px solid var(--line);
+  box-shadow: 0 10px 24px rgba(59,130,246,0.08);
+}
+.profile-hero__avatar { font-size: 3rem; line-height: 1; display: block; margin-bottom: 8px; }
+.profile-hero__name { margin: 0; font-size: 1.35rem; }
+.profile-hero__role { margin: 6px 0 0; color: var(--blue); font-weight: 800; font-size: 0.86rem; }
+.profile-hero__family { margin: 4px 0 0; color: var(--soft); font-size: 0.88rem; }
+.profile-menu { display: flex; flex-direction: column; gap: 10px; }
+.profile-menu-card {
+  display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center;
+  padding: 14px; border-radius: 16px; background: #fff; border: 1px solid var(--line);
+  box-shadow: 0 6px 16px rgba(59,130,246,0.06);
+}
+.profile-menu-card__icon { font-size: 1.6rem; text-align: center; }
+.profile-menu-card__body strong { display: block; font-size: 0.95rem; }
+.profile-menu-card__body p { margin: 4px 0 0; font-size: 0.8rem; color: var(--soft); line-height: 1.45; }
+.profile-menu-card__summary { margin-top: 4px !important; font-size: 0.74rem !important; color: var(--blue) !important; font-weight: 700; }
 
 /* Parent summary & hearts */
 .parent-summary .summary-tags { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
@@ -622,17 +662,26 @@ body.has-nav { padding-bottom: calc(var(--nav-h) + 48px + var(--safe-b)); }
 .info-card p { margin: 0; font-size: 0.86rem; line-height: 1.5; color: var(--soft); }
 
 .toast {
-  position: fixed; left: 50%; bottom: calc(var(--nav-h) + 16px + var(--safe-b));
-  transform: translateX(-50%) translateY(120%); width: min(92%, 400px);
-  padding: 14px 18px; border-radius: 14px; background: var(--navy); color: #fff;
-  font-size: 0.9rem; font-weight: 700; text-align: center; z-index: 100;
-  box-shadow: 0 12px 32px rgba(23,50,77,0.25); transition: transform 0.28s ease;
-  pointer-events: none;
+  position: fixed; left: 50%; bottom: calc(var(--bottom-nav-height) + 16px + var(--safe-b));
+  transform: translateX(-50%) translateY(140%);
+  width: min(92%, 400px); padding: 12px 14px 12px 16px; border-radius: 14px;
+  background: #15803d; color: #fff; font-size: 0.88rem; font-weight: 700;
+  z-index: 120; box-shadow: 0 12px 32px rgba(23,50,77,0.22);
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  display: flex; align-items: center; gap: 10px; pointer-events: auto;
 }
-body:not(.has-nav) .toast { bottom: calc(24px + var(--safe-b)); }
+body:not(.has-nav) .toast { bottom: calc(20px + var(--safe-b)); }
+body.train-immersive .toast { bottom: calc(96px + var(--safe-b)); }
 .toast.is-show { transform: translateX(-50%) translateY(0); }
+.toast__msg { flex: 1; line-height: 1.45; text-align: left; }
+.toast__close {
+  flex-shrink: 0; border: none; background: rgba(255,255,255,0.2); color: #fff;
+  width: 28px; height: 28px; border-radius: 8px; font-size: 1.1rem; line-height: 1;
+  cursor: pointer; font-weight: 800;
+}
+.toast--success { background: #15803d; }
 .toast--error { background: #b91c1c; }
-.toast--info { background: var(--blue-deep); }
+.toast--info, .toast--warn { background: #ca8a04; color: #fff; }
 
 .modal__msg { color: var(--soft); line-height: 1.55; margin: 8px 0 0; }
 .modal__actions--stack { flex-direction: column; }

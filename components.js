@@ -42,6 +42,13 @@ let toastTimer = null;
 let confirmResolve = null;
 
 /* ── Toast / Confirm ── */
+export function hideToast() {
+  clearTimeout(toastTimer);
+  toastTimer = null;
+  const el = document.getElementById("app-toast");
+  if (el) el.classList.remove("is-show");
+}
+
 export function showToast(message, type = "success") {
   let el = document.getElementById("app-toast");
   if (!el) {
@@ -49,12 +56,19 @@ export function showToast(message, type = "success") {
     el.id = "app-toast";
     el.setAttribute("role", "status");
     el.setAttribute("aria-live", "polite");
+    el.innerHTML = `<span class="toast__msg"></span><button type="button" class="toast__close" aria-label="关闭">×</button>`;
+    el.querySelector(".toast__close")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      hideToast();
+    });
     document.body.appendChild(el);
   }
-  el.textContent = message;
+  const msgEl = el.querySelector(".toast__msg") || el;
+  if (msgEl.classList?.contains("toast__msg")) msgEl.textContent = message;
+  else el.textContent = message;
   el.className = `toast toast--${type} is-show`;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("is-show"), 2800);
+  toastTimer = setTimeout(() => hideToast(), 3000);
 }
 
 export function showConfirm({
