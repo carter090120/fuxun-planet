@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#3B82F6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="复训星球 MVP Demo v1.0 — 错题复训清零，家庭陪伴成长" />
+    <meta name="apple-mobile-web-app-title" content="复训星球" />
+    <title>复训星球</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-bg" aria-hidden="true">
+      <div class="page-bg__sky"></div>
+      <div class="page-bg__field"></div>
+      <div class="page-bg__grid"></div>
+    </div>
+
+    <div id="sw-update-bar" class="sw-update-bar hidden" role="alert">
+      <span>发现新版本，请刷新以获取最新演示版</span>
+      <button type="button" id="sw-refresh">立即刷新</button>
+    </div>
+
+    <div class="app-shell">
+      <div id="app-root"></div>
+    </div>
+
+    <nav class="bottom-nav hidden" id="bottom-nav" aria-label="主导航"></nav>
+
+    <dialog id="confirm-dialog" class="modal modal--confirm">
+      <div class="modal__box">
+        <h2 data-confirm-title>请确认</h2>
+        <p class="modal__msg" data-confirm-msg></p>
+        <div class="modal__actions modal__actions--stack">
+          <button type="button" class="btn btn--primary btn--block" data-confirm-ok>确认</button>
+          <button type="button" class="btn btn--ghost btn--block" data-confirm-cancel>取消</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="privacy-dialog" class="modal">
+      <form method="dialog" class="modal__box" id="privacy-form">
+        <h2>分享前请确认隐私</h2>
+        <p>海报可能包含孩子照片、姓名、时间和地点。请确认后再分享。</p>
+        <label class="toggle"><input type="checkbox" id="p-selfie" checked /><span>显示头像</span></label>
+        <label class="toggle"><input type="checkbox" id="p-location" checked /><span>显示地点</span></label>
+        <label class="toggle"><input type="checkbox" id="p-scores" checked /><span>显示分数</span></label>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" id="p-cancel">取消</button>
+          <button type="submit" class="btn btn--primary">生成海报</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
