@@ -43,7 +43,6 @@ export function updateBottomNav(route, root, onNav, unreadCount = 0) {
   const show = isLoggedIn() && !PUBLIC.has(route.path) && !hideNav.includes(route.path);
   nav.classList.toggle("hidden", !show);
   document.body.classList.toggle("has-nav", show);
-  document.body.classList.toggle("train-immersive", route.path === "train-play");
   if (!show) return;
 
   nav.innerHTML = NAV_ITEMS.map((it) => {

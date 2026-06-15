@@ -34,6 +34,10 @@ import {
 import { buildParentSummary, trainingSummaryText } from "./parentSummary.js";
 import { drawBarChart, drawRing, drawGrowthKline, drawInvestmentKline } from "./charts.js";
 import { getGrowthMarket, formatChange, GROWTH_DISCLAIMER } from "./growthMarket.js";
+import {
+  enterTrainingFocusMode, exitTrainingFocusMode, showTrainHint, updateLandscapeHint,
+  requestFocusFullscreen, openParseDrawer, closeParseDrawer,
+} from "./trainingFocus.js";
 import { navigate, parseRoute, guardRoute, updateBottomNav } from "./router.js";
 import { generatePoster, sharePoster, downloadPoster } from "./poster.js";
 import { APP_VERSION, APP_TAGLINE, MODULE_SLOGANS, SW_CACHE_ID, EMPTY_HINTS } from "./version.js";
@@ -876,7 +880,39 @@ function renderTrain(root) {
   renderPanel();
 }
 
+function bindTrainExit(session) {
+  return async () => {
+    if (await showConfirm({ title: "退出训练", message: "当前复训进度会保存，确定退出吗？", confirmText: "退出" })) {
+      exitTraining(session);
+      await exitTrainingFocusMode();
+      showTrainHint("已退出训练", 1500);
+      navigate("/train");
+    }
+  };
+}
+
+function bindParseDrawer(fb) {
+  if (!fb) return;
+  openParseDrawer(`<div class="train-parse__box">
+    <h3>${fb.ok ? "答对了" : "再想想"}</h3>
+    <p><strong>正确答案：</strong>${fb.key}</p>
+    <p><strong>解析：</strong>${fb.explanation}</p>
+    <p class="hint"><strong>错因提醒：</strong>${fb.reason}</p>
+    <p class="hint">下一步：回到原文定位关键句，标出证据后再选答案。</p>
+    <div class="train-parse__actions">
+      <button type="button" class="tf-btn" id="parse-close">收起解析</button>
+      <button type="button" class="tf-btn tf-btn--primary" id="parse-next">下一题</button>
+    </div></div>`);
+  const dlg = document.getElementById("train-parse-drawer");
+  dlg?.querySelector("#parse-close")?.addEventListener("click", () => closeParseDrawer());
+  dlg?.querySelector("#parse-next")?.addEventListener("click", () => {
+    closeParseDrawer();
+    document.getElementById("next-q")?.click();
+  });
+}
+
 function renderTrainPlay(root) {
+  enterTrainingFocusMode();
   const mats = getMaterials();
   const mat = mats[0];
   const user = getCurrentUser();
@@ -888,42 +924,45 @@ function renderTrainPlay(root) {
   if (!session || session.status === "completed" || !session.pool?.length) {
     trainPlayPhase = "answer";
     trainPlayFeedback = null;
+    exitTrainingFocusMode();
     navigate("/train-complete");
     return;
   }
 
   if (session.paused) {
-    root.innerHTML = shell("训练暂停", "Paused", "", `<div class="pause-card">
-      ${InfoCard("训练已暂停，可稍后继续。")}
-      <button class="btn btn--primary btn--block" id="resume">继续训练</button>
-      <button class="btn btn--ghost btn--block" id="exit">退出训练</button>
-      <button class="btn btn--ghost btn--block" data-go="/train">返回复训首页</button></div>`);
-    $("#resume", root).onclick = () => { resumeTraining(session); render(); };
-    $("#exit", root).onclick = async () => {
-      if (await showConfirm({ title: "退出训练", message: "当前复训进度会保存，确定退出吗？", confirmText: "退出" })) {
-        exitTraining(session); navigate("/train");
-      }
-    };
-    const goBtn = $("[data-go]", root);
-    if (goBtn) goBtn.onclick = () => navigate("/train");
+    root.innerHTML = `<div class="train-focus train-focus--pause">
+      <div class="train-focus__top">
+        <button type="button" class="tf-btn" id="home-train">复训首页</button>
+        <span class="train-focus__top-mid">训练已暂停</span>
+        <button type="button" class="tf-btn" id="quit">退出</button>
+      </div>
+      <div class="train-focus__center">
+        <p class="train-focus__pause-msg">训练已暂停，可稍后继续。</p>
+        <button type="button" class="tf-btn tf-btn--primary" id="resume">继续训练</button>
+        <button type="button" class="tf-btn" id="exit">退出训练</button>
+      </div></div>`;
+    $("#resume", root).onclick = () => { resumeTraining(session); showTrainHint("继续训练"); render(); };
+    $("#exit", root).onclick = bindTrainExit(session);
+    $("#quit", root).onclick = bindTrainExit(session);
+    $("#home-train", root).onclick = async () => { await exitTrainingFocusMode(); navigate("/train"); };
     return;
   }
 
   if (session.showRoundEnd) {
     const last = session.roundResults?.at(-1) || session.currentRound;
     const acc = last?.answered ? Math.round((last.correct / last.answered) * 100) : 0;
-    root.innerHTML = shell("本轮成绩", "Round Complete", "", `<div class="complete-card card-block">
-      <h2>第 ${last?.roundNumber || session.stats.rounds} 轮结束</h2>
-      <div class="stat-grid">
-        <div class="stat"><span>本轮题数</span><strong>${last?.answered || 0}</strong></div>
-        <div class="stat"><span>答对</span><strong>${last?.correct || 0}</strong></div>
-        <div class="stat"><span>答错</span><strong>${last?.wrong || 0}</strong></div>
-        <div class="stat"><span>正确率</span><strong>${acc}%</strong></div>
-      </div>
-      <p class="hint">剩余错题 ${session.pool.length} 道，将进入下一轮错题池。</p>
-      <button class="btn btn--primary btn--block" id="next-round">继续下一轮</button></div>`);
+    root.innerHTML = `<div class="train-focus train-focus--pause">
+      <div class="train-focus__top"><span class="train-focus__top-mid">第 ${last?.roundNumber || session.stats.rounds} 轮结束</span></div>
+      <div class="train-focus__center">
+        <div class="stat-grid">
+          <div class="stat"><span>答对</span><strong>${last?.correct || 0}</strong></div>
+          <div class="stat"><span>正确率</span><strong>${acc}%</strong></div>
+        </div>
+        <p class="hint">剩余错题 ${session.pool.length} 道</p>
+        <button type="button" class="tf-btn tf-btn--primary" id="next-round">继续下一轮</button>
+      </div></div>`;
     $("#next-round", root).onclick = () => {
-      session = dismissRoundEnd(session);
+      dismissRoundEnd(session);
       trainPlayPhase = "answer";
       render();
     };
@@ -938,45 +977,72 @@ function renderTrainPlay(root) {
   ];
   const qNum = mistake?.number || (prog.done + 1);
   const showFb = trainPlayPhase === "feedback" && trainPlayFeedback;
+  const sel = showFb?.answer;
+  const correctKey = showFb?.key;
 
-  root.innerHTML = `<div class="page page--kahoot">
-    <div class="kahoot-top">
-      <button class="back-btn" type="button" id="pause">⏸ 暂停</button>
-      <button class="back-btn" type="button" id="home-train">复训首页</button>
-      <button class="back-btn" type="button" id="quit">退出</button>
-      <span class="kahoot-top__info">Q${qNum} · ${mistake?.questionType || "题型"} · 剩余 ${prog.remaining} 错题</span>
-    </div>
-    <div class="kahoot-progress"><i style="width:${prog.roundProgress}%"></i></div>
-    <p class="kahoot-meta">第 ${prog.rounds} 轮 · 正确率 ${prog.accuracy}% · 🔥${prog.streak}</p>
-    <h2 class="kahoot-stem">${question?.stem || mistake?.stem || ""}</h2>
-    <div class="kahoot-opts" id="opts">${opts.slice(0, 4).map((o) =>
-      `<button class="kahoot-opt" data-a="${o.key}" ${showFb ? "disabled" : ""}><span>${o.key}</span>${o.text || o.key}</button>`
-    ).join("")}</div>
-    <div id="feedback" class="kahoot-feedback ${showFb ? "" : "hidden"} ${showFb?.ok ? "is-correct" : showFb ? "is-wrong" : ""}">
-      ${showFb ? (showFb.ok
-        ? `<strong>正确！</strong><p>正确答案：${showFb.key}</p><p>${showFb.explanation}</p>`
-        : `<strong>再想想</strong><p>正确答案：${showFb.key}</p><p>${showFb.explanation}</p><p class="hint">错因提醒：${showFb.reason}</p>`) : ""}
-    </div>
-    <div class="train-footer">
-      <button class="btn btn--primary btn--block" id="next-q" ${showFb ? "" : "disabled"}>下一题</button>
-      <button class="btn btn--ghost btn--block" id="toggle-exp" ${showFb ? "" : "disabled"}>查看解析</button>
-      <div class="train-footer__nav">
-        <button class="btn btn--ghost btn--sm" data-go="/checkin">转到打卡</button>
-        <button class="btn btn--ghost btn--sm" data-go="/coach">转到优培</button>
+  const optHtml = opts.slice(0, 4).map((o, idx) => {
+    let cls = "train-opt";
+    if (showFb) {
+      if (o.key === correctKey) cls += " is-correct";
+      else if (o.key === sel) cls += " is-wrong";
+      else cls += " is-dim";
+    }
+    cls += ` train-opt--${idx + 1}`;
+    return `<button type="button" class="${cls}" data-a="${o.key}" ${showFb ? "disabled" : ""}>
+      <span class="train-opt__key">${o.key}</span><span class="train-opt__text">${o.text || o.key}</span></button>`;
+  }).join("");
+
+  root.innerHTML = `<div class="train-focus">
+    <div class="train-focus__top">
+      <div class="train-focus__top-left">
+        <button type="button" class="tf-btn" id="pause" title="暂停">⏸</button>
+        <button type="button" class="tf-btn" id="home-train" title="复训首页">⌂</button>
       </div>
+      <div class="train-focus__top-mid">Q${qNum} · ${mistake?.questionType || "题型"} · 剩余 ${prog.remaining} 错题</div>
+      <div class="train-focus__top-right">
+        <button type="button" class="tf-btn tf-btn--ghost" id="enter-focus" title="进入专注模式">专注</button>
+        <button type="button" class="tf-btn" id="quit" title="退出">✕</button>
+      </div>
+    </div>
+    <div id="train-landscape-hint" class="train-focus__landscape-hint hidden">
+      <strong>请横屏答题</strong> · 横屏后题目和选项会更清楚
+    </div>
+    <div class="train-stage">
+      <section class="train-question-panel">
+        <span class="train-type-tag">${mistake?.questionType || "题型"}</span>
+        <div class="train-progress"><i style="width:${prog.roundProgress}%"></i></div>
+        <p class="train-meta">第 ${prog.rounds} 轮 · 正确率 ${prog.accuracy}% · 🔥${prog.streak}</p>
+        <div class="train-stem-scroll"><p class="train-stem">${question?.stem || mistake?.stem || ""}</p></div>
+      </section>
+      <section class="train-answer-panel">
+        <div class="train-opts" id="opts">${optHtml}</div>
+      </section>
+    </div>
+    <div class="train-focus__footer">
+      <button type="button" class="tf-btn tf-btn--primary" id="next-q" ${showFb ? "" : "disabled"}>下一题</button>
+      <button type="button" class="tf-btn" id="toggle-exp" ${showFb ? "" : "disabled"}>查看解析</button>
+      <button type="button" class="tf-btn" data-go="/checkin">打卡</button>
+      <button type="button" class="tf-btn" data-go="/coach">优培</button>
     </div></div>`;
 
-  $("#pause", root).onclick = () => { pauseTraining(session); render(); };
-  $("#home-train", root).onclick = () => navigate("/train");
-  $("#quit", root).onclick = async () => {
-    if (await showConfirm({ title: "退出训练", message: "当前复训进度会保存，确定退出吗？", confirmText: "退出" })) {
-      exitTraining(session); navigate("/train");
-    }
-  };
-  root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
+  updateLandscapeHint();
+  if (!window.__trainOrientBound) {
+    window.__trainOrientBound = true;
+    window.addEventListener("resize", updateLandscapeHint);
+    window.addEventListener("orientationchange", updateLandscapeHint);
+  }
+
+  $("#pause", root).onclick = () => { pauseTraining(session); showTrainHint("已暂停"); render(); };
+  $("#home-train", root).onclick = async () => { await exitTrainingFocusMode(); navigate("/train"); };
+  $("#quit", root).onclick = bindTrainExit(session);
+  $("#enter-focus", root).onclick = () => requestFocusFullscreen();
+  root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", async () => {
+    await exitTrainingFocusMode();
+    navigate(b.dataset.go);
+  }));
 
   if (!showFb) {
-    root.querySelectorAll(".kahoot-opt").forEach((btn) => btn.addEventListener("click", () => {
+    root.querySelectorAll(".train-opt").forEach((btn) => btn.addEventListener("click", () => {
       const ok = gradeTrainingAnswer(question, mistake, btn.dataset.a);
       const key = (mistake?.correctAnswer || question?.answerKey || "").toString().toUpperCase();
       trainPlayFeedback = {
@@ -986,11 +1052,13 @@ function renderTrainPlay(root) {
         qid, mistake, sessionId: session.sessionId,
       };
       trainPlayPhase = "feedback";
+      showTrainHint(ok ? "答对了" : "再想想");
       render();
     }));
   }
 
   $("#next-q", root)?.addEventListener("click", () => {
+    closeParseDrawer();
     if (trainPlayFeedback) {
       session = getActiveSession() || session;
       session = submitTrainingAnswer(session, trainPlayFeedback.qid, trainPlayFeedback.answer, trainPlayFeedback.ok, trainPlayFeedback.mistake);
@@ -998,21 +1066,21 @@ function renderTrainPlay(root) {
     trainPlayPhase = "answer";
     trainPlayFeedback = null;
     if (!session?.pool?.length || session.status === "completed") {
+      exitTrainingFocusMode();
       navigate("/train-complete");
       return;
     }
-    if (session.showRoundEnd) render();
-    else render();
+    render();
   });
 
   $("#toggle-exp", root)?.addEventListener("click", () => {
-    const fb = $("#feedback", root);
-    if (fb) fb.classList.toggle("is-expanded");
-    showToast(trainPlayFeedback?.explanation || "暂无解析", "info");
+    if (trainPlayFeedback) bindParseDrawer(trainPlayFeedback);
+    else showTrainHint("请先选择答案");
   });
 }
 
 function renderTrainComplete(root) {
+  exitTrainingFocusMode();
   const mat = getMaterials()[0];
   const session = getTrainingSessions().find((t) => t.dateKey === formatDateKey() && t.status === "completed")
     || getActiveSession();
@@ -2109,13 +2177,14 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=12`;
+  location.href = `${location.pathname}?v=13`;
 }
 
 function render() {
   try {
-    hideToast();
     const route = parseRoute();
+    if (route.path !== "train-play") exitTrainingFocusMode();
+    else hideToast();
     if (!guardRoute(route.path)) return;
     const root = $("#app-root");
     if (!root) return;
@@ -2164,7 +2233,7 @@ function bindGlobalHandlers() {
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.register("./service-worker.js?v=12");
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=13");
     if (reg.waiting && navigator.serviceWorker.controller) {
       reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "fuxun-planet-v12";
+const CACHE_NAME = "fuxun-planet-v13";
 
 const SHELL_ASSETS = [
   "./", "./index.html", "./manifest.webmanifest",
@@ -9,7 +9,7 @@ const APP_ASSETS = [
   "./styles.css", "./app.js", "./components.js", "./version.js", "./demoData.js",
   "./storage.js", "./auth.js", "./router.js", "./parentSummary.js",
   "./questionParser.js", "./ocrService.js", "./trainingCoach.js", "./notifications.js",
-  "./charts.js", "./poster.js", "./growthMarket.js",
+  "./charts.js", "./poster.js", "./growthMarket.js", "./trainingFocus.js",
 ];
 
 const NETWORK_FIRST_PATTERNS = [

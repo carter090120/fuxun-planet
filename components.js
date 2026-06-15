@@ -56,6 +56,7 @@ function toastTone(type) {
 }
 
 export function showToast(message, type = "success") {
+  if (typeof window !== "undefined" && window.__trainingFocusBlockToast) return;
   let el = document.getElementById("app-toast");
   if (!el) {
     el = document.createElement("div");
