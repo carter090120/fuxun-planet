@@ -15,6 +15,7 @@
   --bottom-nav-height: var(--nav-h);
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
+  --train-browser-chrome: 0px;
 }
 
 * { box-sizing: border-box; }
@@ -233,15 +234,17 @@ body.train-immersive { padding-bottom: calc(12px + var(--safe-b)); }
 .complete-card, .pause-card { text-align: center; padding: 32px 16px; }
 .complete-card h2 { font-size: 1.6rem; margin: 0 0 8px; }
 
-/* Training focus mode — 横屏专注答题 */
+/* Training focus mode — 横屏专注答题 / PWA 全屏 */
 body.training-focus-mode {
   padding: 0;
+  margin: 0;
   overflow: hidden;
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
+  height: 100svh;
 }
 body.training-focus-mode .bottom-nav,
 body.training-focus-mode #app-toast,
@@ -251,6 +254,9 @@ body.training-focus-mode .app-shell {
   position: fixed;
   inset: 0;
   width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  height: 100svh;
   max-width: none;
   margin: 0;
   z-index: 9999;
@@ -260,7 +266,15 @@ body.training-focus-mode .app-shell {
 body.training-focus-mode #app-root {
   width: 100%;
   height: 100%;
+  height: 100dvh;
+  height: 100svh;
   min-height: 0;
+  overflow: hidden;
+}
+body.training-focus-mode--browser .app-shell {
+  top: var(--train-browser-chrome, 0px);
+  height: calc(100dvh - var(--train-browser-chrome, 0px));
+  height: calc(100svh - var(--train-browser-chrome, 0px));
 }
 
 .train-focus {
@@ -268,6 +282,7 @@ body.training-focus-mode #app-root {
   flex-direction: column;
   height: 100%;
   height: 100dvh;
+  height: 100svh;
   overflow: hidden;
 }
 .train-focus__top {
@@ -276,8 +291,8 @@ body.training-focus-mode #app-root {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 8px;
-  min-height: 48px;
-  max-height: 56px;
+  min-height: 44px;
+  max-height: 52px;
   padding: calc(4px + var(--safe-t)) 10px 6px;
   background: rgba(255,255,255,0.82);
   backdrop-filter: blur(10px);
@@ -332,10 +347,17 @@ body.training-focus-mode #app-root {
 .train-focus__landscape-hint.hidden { display: none; }
 .train-focus__landscape-hint strong { color: var(--blue-deep); }
 
+body.training-focus-mode--browser .train-focus__top {
+  padding-top: calc(6px + var(--safe-t));
+}
+body.training-focus-mode--browser .train-focus__hint {
+  top: calc(60px + var(--safe-t) + var(--train-browser-chrome, 0px));
+}
+
 .train-focus__hint {
   position: fixed;
   left: 50%;
-  top: calc(52px + var(--safe-t));
+  top: calc(52px + var(--safe-t) + var(--train-browser-chrome, 0px));
   transform: translateX(-50%) translateY(-8px);
   z-index: 10001;
   padding: 6px 14px;
@@ -1031,6 +1053,19 @@ body:has(.sw-update-bar:not(.hidden)) .toast { top: calc(var(--safe-t) + 52px); 
 .modal__actions--stack { flex-direction: column; }
 
 .member-avatar--img { width: 56px; height: 56px; border-radius: 16px; object-fit: cover; display: block; }
+
+/* PWA 安装引导 */
+.install-guide__note { margin: 0 0 14px; line-height: 1.55; }
+.install-guide__platform { margin-bottom: 16px; }
+.install-guide__platform h4 { margin: 0 0 8px; font-size: 0.95rem; color: var(--blue); }
+.install-guide__platform ol { margin: 0; padding-left: 1.2rem; font-size: 0.86rem; line-height: 1.65; color: var(--navy); }
+.train-install-dialog__warn {
+  margin: 0 0 12px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(250,204,21,0.2); border: 1px solid rgba(250,204,21,0.35);
+  font-size: 0.82rem; line-height: 1.5;
+}
+.train-install-dialog__back { margin-top: 8px; }
+.env-check-list { margin: 0; padding-left: 1.1rem; font-size: 0.86rem; line-height: 1.7; }
 
 @media (min-width: 480px) {
   .status-group--four { grid-template-columns: repeat(4, 1fr); }

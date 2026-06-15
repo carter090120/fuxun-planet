@@ -37,6 +37,7 @@ import { getGrowthMarket, formatChange, GROWTH_DISCLAIMER } from "./growthMarket
 import {
   enterTrainingFocusMode, exitTrainingFocusMode, showTrainHint, updateLandscapeHint,
   requestFocusFullscreen, openParseDrawer, closeParseDrawer,
+  beginTrainingFromUserGesture, getInstallGuideHTML, detectTrainingEnvironment,
 } from "./trainingFocus.js";
 import { navigate, parseRoute, guardRoute, updateBottomNav } from "./router.js";
 import { generatePoster, sharePoster, downloadPoster } from "./poster.js";
@@ -595,11 +596,19 @@ function renderPhotoWizard(panel, onDone) {
       <button class="btn btn--primary btn--block" id="go-play">开始复训</button>
       <button class="btn btn--ghost btn--block" id="go-reset">继续拍图导入</button>
     </div>`;
-  $("#go-play", panel)?.addEventListener("click", () => onDone(true));
+  $("#go-play", panel)?.addEventListener("click", async () => {
+    if (await beginTrainingFromUserGesture()) onDone(true);
+  });
   $("#go-reset", panel)?.addEventListener("click", () => { resetPhotoWizard(); renderPhotoWizard(panel, onDone); });
 }
 
 /* ── Train module ── */
+async function startTrainPlayFlow(prepareSession) {
+  if (!(await beginTrainingFromUserGesture())) return;
+  prepareSession?.();
+  navigate("/train-play");
+}
+
 function renderTrain(root) {
   const tabs = [
     { id: "materials", label: "今日资料" },
@@ -844,17 +853,19 @@ function renderTrain(root) {
         <p class="train-start-sub">像课堂闯关一样，把错题清零。</p>
         <button class="btn btn--primary btn--block" id="start-play">开始复训</button>
         ${canResume ? `<button class="btn btn--ghost btn--block" id="resume-play">继续训练</button>` : ""}`;
-      $("#start-play", panel)?.addEventListener("click", () => {
+      $("#start-play", panel)?.addEventListener("click", () => startTrainPlayFlow(() => {
         const u = getCurrentUser();
         const resumed = restoreActiveSession(u?.familyId, todayMat?.materialId);
-        if (!resumed) getOrResumeTrainingSession(mistakes, { ...todayMat, familyId: u.familyId, studentId: getStudentMember()?.memberId });
-        navigate("/train-play");
-      });
-      $("#resume-play", panel)?.addEventListener("click", () => {
+        if (!resumed) {
+          getOrResumeTrainingSession(mistakes, {
+            ...todayMat, familyId: u.familyId, studentId: getStudentMember()?.memberId,
+          });
+        }
+      }));
+      $("#resume-play", panel)?.addEventListener("click", () => startTrainPlayFlow(() => {
         const u = getCurrentUser();
         restoreActiveSession(u?.familyId, todayMat?.materialId);
-        navigate("/train-play");
-      });
+      }));
     } else if (trainTab === "score") {
       const wrongCount = mistakes.filter((m) => !m.isCorrect).length;
       panel.innerHTML = session ? `<div class="stat-grid">
@@ -1005,7 +1016,7 @@ function renderTrainPlay(root) {
       </div>
     </div>
     <div id="train-landscape-hint" class="train-focus__landscape-hint hidden">
-      <strong>请横屏答题</strong> · 横屏后题目和选项会更清楚
+      <strong>建议横屏答题</strong> · 题目和选项会更清楚
     </div>
     <div class="train-stage">
       <section class="train-question-panel">
@@ -1811,6 +1822,9 @@ function renderProfileMenu(root) {
   const selfMember = getMembers().find((m) => m.memberId === user?.memberId);
   cards.push(profileMenuCard("👤", "我的账号", "管理头像、昵称、爱好和性格标签。",
     selfMember?.name || user?.name, "account"));
+  const env = detectTrainingEnvironment();
+  cards.push(profileMenuCard("📲", "全屏训练安装", "从主屏幕打开可隐藏浏览器地址栏。",
+    env.isStandalone ? "已独立 App 模式" : "建议安装到主屏幕", "install"));
 
   if (role === "student") {
     cards.push(profileMenuCard("🧑‍🎓", "孩子资料", "管理年级、学校、学习目标和主要科目。",
@@ -1863,8 +1877,30 @@ function renderProfileSection(root, section) {
   const titles = {
     account: "我的账号", family: "家庭资料", child: "孩子资料",
     father: "爸爸资料", mother: "妈妈资料", privacy: "隐私设置", data: "数据管理",
+    install: "全屏训练安装",
   };
   const back = () => navigate("/profile");
+
+  if (section === "install") {
+    const env = detectTrainingEnvironment();
+    root.innerHTML = shell(titles.install, "PWA Install", "←", `
+      ${getInstallGuideHTML()}
+      <div class="card-block">
+        <h3>当前运行环境</h3>
+        <ul class="env-check-list">
+          <li>${env.isStandalone ? "✅" : "⚪"} PWA 独立模式（主屏幕图标）</li>
+          <li>${env.isIosSafariBrowser ? "📱" : "—"} iOS Safari 浏览器</li>
+          <li>${env.isAndroidChromeBrowser ? "📱" : "—"} Android Chrome 浏览器</li>
+          <li>${env.fullscreenEnabled ? "✅" : "—"} 支持全屏 API</li>
+          <li>${env.orientationLockSupported ? "✅" : "—"} 支持横屏锁定</li>
+        </ul>
+        <p class="hint">${env.isStandalone
+    ? "你已从主屏幕打开，训练页可不显示浏览器地址栏。"
+    : "你正在普通浏览器中打开。地址栏属于浏览器外壳，安装到主屏幕后可隐藏。"}</p>
+      </div>`);
+    $("[data-back]", root).onclick = back;
+    return;
+  }
 
   if (section === "account") {
     const member = getMembers().find((m) => m.memberId === user?.memberId);
@@ -2177,7 +2213,7 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=13`;
+  location.href = `${location.pathname}?v=14`;
 }
 
 function render() {
@@ -2233,7 +2269,7 @@ function bindGlobalHandlers() {
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.register("./service-worker.js?v=13");
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=14");
     if (reg.waiting && navigator.serviceWorker.controller) {
       reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }

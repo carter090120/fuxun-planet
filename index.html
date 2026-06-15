@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#3B82F6" />
+    <meta name="theme-color" content="#8ec5ff" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="复训星球 MVP Demo v1.0 — 错题复训清零，家庭陪伴成长" />
@@ -104,12 +104,12 @@
               await Promise.all(keys.map((k) => caches.delete(k)));
             }
           } catch { /* ignore */ }
-          location.href = `${location.pathname}?v=13`;
+          location.href = `${location.pathname}?v=14`;
         });
       }
 
       try {
-        const mod = await import("./app.js?v=13");
+        const mod = await import("./app.js?v=14");
         await mod.initApp();
       } catch (err) {
         showInlineBootError(err);
