@@ -8,7 +8,7 @@ import {
 } from "./growthAssets.js";
 import { getMarketKlines, getLatestMarketSummary, rebuildMarketKlines } from "./marketKline.js";
 
-export const GROWTH_DISCLAIMER = "成长积分模拟，非真实投资。";
+export const GROWTH_DISCLAIMER = "成长大盘是学习成长积分模拟，不是真实投资。它用来记录努力、复训、奖励和成长趋势。";
 
 function offsetDateKey(baseKey, days) {
   const d = new Date(`${baseKey}T12:00:00`);

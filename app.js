@@ -69,7 +69,7 @@ import {
   getParentWorkbenchMeta, getMemberSystemRoles,
 } from "./memberRoles.js";
 import { generatePoster, sharePoster, downloadPoster } from "./poster.js";
-import { APP_VERSION, APP_TAGLINE, MODULE_SLOGANS, SW_CACHE_ID, EMPTY_HINTS } from "./version.js";
+import { APP_VERSION, APP_TAGLINE, MODULE_SLOGANS, PAGE_GUIDES, SW_CACHE_ID, EMPTY_HINTS } from "./version.js";
 import {
   showToast, hideToast, showConfirm, initConfirmDialog,
   RegisterPageHero, RegisterNavHeader, bindStepBack, SectionTabs, bindSectionTabs,
@@ -137,6 +137,10 @@ function truncateLine(text, max = 56) {
   const s = String(text || "").replace(/\s+/g, " ").trim();
   if (!s) return "—";
   return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+function renderKlineDisclaimer() {
+  return `<p class="growth-disclaimer">${GROWTH_DISCLAIMER}</p>`;
 }
 
 function renderPlanetFold(summary, content, open = false) {
@@ -362,6 +366,7 @@ function renderHome(root) {
       </div>
       <p class="page-en">Fuxun Planet</p>
       <h1 class="home-hero__title">${fam?.familyName || "我们的家庭"}</h1>
+      <p class="home-hero__guide">${PAGE_GUIDES.home}</p>
       <p class="home-hero__motto">${fam?.motto || "每天进步一点点"}</p>
       <p class="home-hero__date">${formatDateKey()}</p>
     </header>
@@ -1369,6 +1374,7 @@ function renderCheckin(root) {
         </form>`;
     } else if (sec === "special") {
       body = `<form class="form" id="special-f">${specialPerformanceHTML(checkinDraft)}
+        <p class="page-guide page-guide--compact">${PAGE_GUIDES.checkinSpecial}</p>
         <button class="btn btn--primary btn--block" type="button" data-next="reflect">下一步：成长复盘</button></form>`;
     } else if (sec === "reflect") {
       body = `<form class="form card-block" id="reflect-f"><h3>📝 成长复盘</h3>
@@ -1575,9 +1581,9 @@ function renderGrowthDashboard(student, gm) {
     <div class="growth-chart-wrap">
       <p class="growth-chart-label">大盘成长 K 线 <span>最近 7 天</span></p>
       <canvas id="growth-kline" class="growth-kline" width="320" height="150" aria-label="大盘成长K线图"></canvas>
+      ${renderKlineDisclaimer()}
     </div>
     <div class="growth-factors"><h4>今日影响因素</h4><ul>${factors}</ul></div>
-    <p class="growth-disclaimer">${gm.disclaimer || GROWTH_DISCLAIMER}</p>
   </section>`;
 }
 
@@ -1924,14 +1930,14 @@ function renderCoachHonor(root) {
       <h3>成长大盘 K 线</h3>
       <p class="hint">反映爸爸妈妈加分、点评和任务完成度。</p>
       ${gm?.history?.length
-    ? `<canvas id="honor-market-kline" class="growth-kline" width="320" height="150"></canvas>`
+    ? `<canvas id="honor-market-kline" class="growth-kline" width="320" height="150"></canvas>${renderKlineDisclaimer()}`
     : EmptyCard("暂无大盘数据", "📈")}
     </section>
     <section class="planet-card card-block">
       <h3>投资 K 线</h3>
       <p class="hint">${inv ? `目标：${inv.goal} · 投入 ${inv.invested} → 当前 ${inv.current}` : "把孩子积分投进目标后的模拟涨跌。"}</p>
       ${inv?.history?.length
-    ? `<canvas id="honor-invest-kline" class="growth-kline" width="320" height="150"></canvas>`
+    ? `<canvas id="honor-invest-kline" class="growth-kline" width="320" height="150"></canvas>${renderKlineDisclaimer()}`
     : EmptyCard("暂无投资走势", "🎯")}
     </section>
     ${renderHonorSection("我的贺卡", allHonor.filter((h) => h.itemType === "card"), "还没有收到贺卡。", "💌")}
@@ -1941,8 +1947,7 @@ function renderCoachHonor(root) {
     <section class="planet-card card-block honor-section"><h3>我的特别表现</h3>${renderSpecialPerformanceHonor(fid, student?.memberId)}</section>
     <section class="planet-card card-block"><h3>爸爸奖励记录</h3>${renderPointLedgerHTML(fatherTxs, "还没有来自爸爸的积分奖励记录。")}</section>
     <section class="planet-card card-block"><h3>妈妈鼓励记录</h3>${renderPointLedgerHTML(motherTxs, "还没有来自妈妈的鼓励记录。")}</section>
-    <section class="planet-card card-block"><h3>积分流水</h3>${renderPointLedgerHTML(allTxs, "还没有积分流水记录。")}</section>
-    <p class="growth-disclaimer">${GROWTH_DISCLAIMER}</p>`);
+    <section class="planet-card card-block"><h3>积分流水</h3>${renderPointLedgerHTML(allTxs, "还没有积分流水记录。")}</section>`);
 
   $("[data-back]", root).onclick = () => navigate("/coach");
   setTimeout(() => {
@@ -2158,6 +2163,7 @@ function renderFatherFirstScreen(member, wallet, wb, familyId, snapshot, ai) {
       <div>
         <p class="page-en">${wb?.subtitle || "Growth Investor"}</p>
         <h2 class="workbench-first__title">${wb?.title || `${member?.name || "爸爸"} 的成长投资官工作台`}</h2>
+        <p class="page-guide">${PAGE_GUIDES.father}</p>
       </div>
     </div>
     <div class="stat-strip stat-strip--3">
@@ -2172,6 +2178,7 @@ function renderFatherFirstScreen(member, wallet, wb, familyId, snapshot, ai) {
       <button type="button" class="quick-action-btn btn btn--green" data-father-tool="medal">🏅 发奖章</button>
       <button type="button" class="quick-action-btn btn btn--ghost" data-father-tool="method-card">💡 给方法</button>
     </div>
+    <p class="page-guide page-guide--compact">${PAGE_GUIDES.fatherReward}</p>
     <div id="father-tool-form" class="father-tool-form hidden"></div>
     ${wallet ? `<button type="button" class="btn btn--ghost btn--block btn--sm btn--ledger" data-toggle-ledger>积分记录</button>
     <div id="parent-ledger" class="ledger-panel hidden"></div>` : `<p class="hint">钱包余额仅在工作台与孩子荣誉室中可见。</p>`}
@@ -2191,6 +2198,7 @@ function renderMotherFirstScreen(member, wallet, wb, familyId, snapshot, ai) {
       <div>
         <p class="page-en">${wb?.subtitle || "Care & Honor Coach"}</p>
         <h2 class="workbench-first__title">${wb?.title || `${member?.name || "妈妈"} 的陪伴荣誉官工作台`}</h2>
+        <p class="page-guide">${PAGE_GUIDES.mother}</p>
       </div>
     </div>
     <div class="stat-strip stat-strip--4">
@@ -2207,6 +2215,7 @@ function renderMotherFirstScreen(member, wallet, wb, familyId, snapshot, ai) {
       <button type="button" class="quick-action-btn btn btn--green" data-mother-tool="badge">🎖️ 荣誉徽章</button>
       <button type="button" class="quick-action-btn btn btn--ghost" data-mother-tool="tomorrow-goal">🎯 明日小目标</button>
     </div>
+    <p class="page-guide page-guide--compact">${PAGE_GUIDES.motherCompanion}</p>
     <div id="mother-tool-form" class="father-tool-form hidden"></div>
     ${wallet ? `<button type="button" class="btn btn--ghost btn--block btn--sm btn--ledger" data-toggle-ledger>积分记录</button>
     <div id="parent-ledger" class="ledger-panel hidden"></div>` : `<p class="hint">钱包余额仅在工作台与孩子荣誉室中可见。</p>`}
@@ -2230,7 +2239,7 @@ function renderHonorHero(student, gm, wallet, allHonor) {
       <div>
         <p class="page-en">Honor Room</p>
         <h2 class="workbench-first__title">${name} 的荣誉室</h2>
-        <p class="hint">记录成长资产、荣誉与父母陪伴。</p>
+        <p class="page-guide">${PAGE_GUIDES.honor(name)}</p>
       </div>
     </div>
     <div class="stat-strip stat-strip--3">

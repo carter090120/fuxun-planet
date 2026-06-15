@@ -45,6 +45,7 @@ const fatherWorkbench = await import(pathToFileURL(path.join(root, "fatherWorkbe
 const motherWorkbench = await import(pathToFileURL(path.join(root, "motherWorkbench.js")).href);
 const honorItems = await import(pathToFileURL(path.join(root, "honorItems.js")).href);
 const demoMode = await import(pathToFileURL(path.join(root, "demoMode.js")).href);
+const version = await import(pathToFileURL(path.join(root, "version.js")).href);
 
 const results = { pass: [], fail: [] };
 const ok = (name, cond) => (cond ? results.pass.push(name) : results.fail.push(name));
@@ -102,7 +103,7 @@ ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance 
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const cssText = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-ok("v15. SW含memberRoles与v16d2", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16d2"));
+ok("v15. SW含memberRoles与v16d3", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16d3"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
 ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
 ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
@@ -505,6 +506,13 @@ ok("v16d2. Sara钱包9500", rw.mother?.balance === 9500);
 ok("v16d2. Daniel钱包10500", rw.student?.balance === 10500);
 const rrec = storage.getTodayRecord(rfam.familyId);
 ok("v16d2. 特别表现样例", rrec?.specialPerformance?.customDescription?.includes("Evidence"));
+ok("v16d3. 首页产品定位", appText.includes("PAGE_GUIDES.home") && version.PAGE_GUIDES.home.includes("家庭学习成长系统"));
+ok("v16d3. 复训页引导", version.MODULE_SLOGANS.train.includes("一题一屏复训") && version.MODULE_SLOGANS.train.includes("错题清零"));
+ok("v16d3. 打卡特别表现提示", appText.includes("PAGE_GUIDES.checkinSpecial") && version.PAGE_GUIDES.checkinSpecial.includes("温暖行动"));
+ok("v16d3. Ryan引导", appText.includes("PAGE_GUIDES.father") && appText.includes("PAGE_GUIDES.fatherReward"));
+ok("v16d3. Sara引导", appText.includes("PAGE_GUIDES.mother") && appText.includes("PAGE_GUIDES.motherCompanion"));
+ok("v16d3. 荣誉室引导", appText.includes("PAGE_GUIDES.honor") && version.PAGE_GUIDES.honor("Daniel").includes("成长资产中心"));
+ok("v16d3. K线免责声明", growthMarket.GROWTH_DISCLAIMER.includes("不是真实投资") && appText.includes("renderKlineDisclaimer"));
 
 console.log("\n=== 复训星球验收结果 ===");
 console.log(`通过: ${results.pass.length}`);

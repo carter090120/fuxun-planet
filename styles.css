@@ -1190,7 +1190,19 @@ body:has(.sw-update-bar:not(.hidden)) .toast { top: calc(var(--safe-t) + 52px); 
 }
 .home-hero__brand { font-size: 2rem; line-height: 1; }
 .home-hero__title { margin: 4px 0 0; font-size: 1.28rem; line-height: 1.3; }
+.home-hero__guide {
+  margin: 6px 0 0; font-size: 0.78rem; line-height: 1.45; color: var(--soft);
+}
 .home-hero__motto { margin: 4px 0 0; color: var(--soft); font-size: 0.86rem; font-weight: 600; }
+.page-guide {
+  margin: 6px 0 0; font-size: 0.78rem; line-height: 1.45; color: var(--soft);
+}
+.page-guide--compact {
+  margin: 10px 0 0; padding: 8px 10px; border-radius: 10px;
+  font-size: 0.74rem; line-height: 1.4;
+  background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.08);
+}
+.workbench-first__head .page-guide { margin-top: 4px; }
 .home-hero__date { margin: 6px 0 0; font-size: 0.78rem; color: var(--blue); font-weight: 700; }
 
 .workbench-first__toolbar { margin-bottom: 8px; }
