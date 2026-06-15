@@ -87,13 +87,20 @@ ok("v15. 最后K线close5180", lastDemoBar?.close === 5180);
 ok("v15. 影响因素含特别表现", (marketView?.todayFactors || []).some((f) => String(f.label).includes("特别表现")));
 ok("v15. Ryan入口/coach/father", memberRoles.getMemberEntryPath({ role: "father" }) === "/coach/father");
 ok("v15. Sara入口/coach/mother", memberRoles.getMemberEntryPath({ role: "mother" }) === "/coach/mother");
+ok("v16. Daniel入口/student", memberRoles.getMemberEntryPath({ role: "student" }) === "/student");
+ok("v16. Ryan工作台标题", memberRoles.PARENT_WORKBENCH.father.title("Ryan").includes("成长投资官工作台"));
+ok("v16. Sara工作台标题", memberRoles.PARENT_WORKBENCH.mother.title("Sara").includes("陪伴荣誉官工作台"));
+ok("v16. 默认爸爸角色", memberRoles.DEFAULT_PARENT_SYSTEM_ROLES.father.includes("成长投资官"));
+ok("v16. 默认妈妈角色", memberRoles.DEFAULT_PARENT_SYSTEM_ROLES.mother.includes("陪伴荣誉官"));
 const demoRec = storage.getTodayRecord(fam.familyId);
 ok("v15. 演示特别表现字段", demoRec?.specialPerformance?.hasPerformance === "yes"
   && demoRec.specialPerformance.suggestedPoints === 200);
 const swText = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appText = fs.readFileSync(path.join(root, "app.js"), "utf8");
-ok("v15. SW含memberRoles与v15", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v15"));
+ok("v15. SW含memberRoles与v16", swText.includes("memberRoles.js") && swText.includes("fuxun-planet-v16"));
 ok("v15. app含getMemberEntryPath", appText.includes("getMemberEntryPath"));
+ok("v16. app含renderStudent", appText.includes("renderStudent") && appText.includes("student: renderStudent"));
+ok("v16. app含工作台英雄区", appText.includes("renderParentWorkbenchHero") && appText.includes("家庭优培总览"));
 ok("v15. app含rewardStudent", appText.includes("rewardStudent"));
 
 storage.saveState(st);

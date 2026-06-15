@@ -3,12 +3,15 @@
  */
 
 export const SYSTEM_ROLE_OPTIONS = [
+  "成长投资官",
+  "陪伴荣誉官",
+  "情绪守护官",
+  "积分官",
+  "荣誉官",
+  "方法教练",
+  "复盘官",
   "成长教练",
   "陪伴导师",
-  "方法教练",
-  "荣誉官",
-  "积分官",
-  "复盘官",
 ];
 
 export const FAMILY_ROLE_LABELS = {
@@ -18,20 +21,20 @@ export const FAMILY_ROLE_LABELS = {
 };
 
 export const DEFAULT_PARENT_SYSTEM_ROLES = {
-  father: ["成长教练", "积分官"],
-  mother: ["陪伴导师", "荣誉官"],
+  father: ["成长投资官", "积分官"],
+  mother: ["陪伴荣誉官", "情绪守护官"],
 };
 
 export const PARENT_WORKBENCH = {
   father: {
-    title: (name) => `${name || "爸爸"} 的成长教练台`,
-    subtitle: "Growth Coach",
-    tagline: "看目标、看结果、看错题、给方法、给积分奖励。",
+    title: (name) => `${name || "爸爸"} 的成长投资官工作台`,
+    subtitle: "Growth Investor",
+    tagline: "看见孩子在学习、生活和家庭责任中的关键成长瞬间，并把它转化为积分、奖章、表扬信和成长资产。",
   },
   mother: {
-    title: (name) => `${name || "妈妈"} 的陪伴导师台`,
-    subtitle: "Care Coach",
-    tagline: "看状态、看心情、看计划、给鼓励、发荣誉和陪伴奖励。",
+    title: (name) => `${name || "妈妈"} 的陪伴荣誉官工作台`,
+    subtitle: "Care & Honor Coach",
+    tagline: "看见孩子的情绪、压力、计划和日常努力，并通过鼓励卡、荣誉、陪伴奖励和温暖反馈帮助孩子持续成长。",
   },
 };
 
@@ -66,7 +69,7 @@ export function getParentWorkbenchMeta(role, member) {
 
 export function getMemberEntryPath(member) {
   if (!member) return "/home";
-  if (member.role === "student") return "/checkin";
+  if (member.role === "student") return "/student";
   if (member.role === "father") return "/coach/father";
   if (member.role === "mother") return "/coach/mother";
   return "/home";

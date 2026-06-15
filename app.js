@@ -49,7 +49,8 @@ import {
 } from "./trainingFocus.js";
 import { navigate, parseRoute, guardRoute, updateBottomNav } from "./router.js";
 import {
-  SYSTEM_ROLE_OPTIONS, DEFAULT_PARENT_SYSTEM_ROLES, formatMemberRoleLine, getMemberEntryPath, getMemberEntryLabel,
+  SYSTEM_ROLE_OPTIONS, DEFAULT_PARENT_SYSTEM_ROLES, FAMILY_ROLE_LABELS,
+  formatMemberRoleLine, getMemberEntryPath, getMemberEntryLabel,
   getParentWorkbenchMeta, getMemberSystemRoles,
 } from "./memberRoles.js";
 import { generatePoster, sharePoster, downloadPoster } from "./poster.js";
@@ -286,9 +287,48 @@ function renderRegister(root) {
   paint();
 }
 
+function renderMemberHomeCard(m, st, gm) {
+  const familyRole = FAMILY_ROLE_LABELS[m.role] || m.role;
+  const sysRoles = getMemberSystemRoles(m);
+  if (m.role === "student") {
+    const subjects = m.subjectFocus?.length ? m.subjectFocus : ["SAT Reading", "Math", "English"];
+    const planetLevel = gm?.level || "成长星球";
+    const taskParts = [];
+    if (st.checkedIn) taskParts.push(`已打卡 ${formatScore(st.totalScore)}分`);
+    else taskParts.push("待打卡");
+    taskParts.push(st.trainingDone ? "复训完成" : st.trainingProgress);
+    return `<article class="member-card member-card--student">
+      <div class="member-card__avatar">${renderAvatar(m, "member-card__avatar")}</div>
+      <div class="member-card__body">
+        <strong>${m.name}${m.nickname ? ` · ${m.nickname}` : ""}</strong>
+        <span class="member-role">${familyRole}</span>
+        <div class="tag-row">${tagsHTML(["成长星球", planetLevel])}</div>
+        <div class="tag-row tag-row--muted">${tagsHTML(subjects)}</div>
+        <p class="member-status">今日：${taskParts.join(" · ")}</p>
+      </div>
+      <button class="btn btn--primary btn--sm" data-enter="${m.memberId}" data-role="${m.role}">${getMemberEntryLabel(m)}</button>
+    </article>`;
+  }
+  const hobbyLine = m.hobbies?.length ? m.hobbies : [];
+  return `<article class="member-card member-card--${m.role}">
+    <div class="member-card__avatar">${renderAvatar(m, "member-card__avatar")}</div>
+    <div class="member-card__body">
+      <strong>${m.name}</strong>
+      <span class="member-role">${familyRole}</span>
+      <div class="tag-row">${tagsHTML(sysRoles)}</div>
+      ${hobbyLine.length ? `<div class="tag-row tag-row--muted">${tagsHTML(hobbyLine)}</div>` : ""}
+      <p class="member-status">今日：陪伴中</p>
+    </div>
+    <button class="btn btn--primary btn--sm" data-enter="${m.memberId}" data-role="${m.role}">${getMemberEntryLabel(m)}</button>
+  </article>`;
+}
+
 /* ── Home ── */
 function renderHome(root) {
   const fam = getFamily();
+  const user = getCurrentUser();
+  const student = getStudentMember();
+  const gm = getGrowthMarket(user?.familyId, student?.memberId);
   const members = getMembers().sort((a, b) => {
     const o = { father: 0, mother: 1, student: 2 };
     return o[a.role] - o[b.role];
@@ -305,25 +345,7 @@ function renderHome(root) {
       <button class="btn btn--ghost btn--sm" id="logout-top">退出登录</button></header>
     ${!st.checkedIn && getCurrentRole() === "student" ? RemindCard(EMPTY_HINTS.checkin, "✅") : ""}
     ${unread && getCurrentRole() === "student" ? `<button type="button" class="alert-heart" data-go="/hearts">💛 你有 ${unread} 条爱心提醒，点击查看</button>` : ""}
-    <div class="member-list">${members.map((m) => {
-      const status = m.role === "student"
-        ? (st.checkedIn ? `已打卡 ${formatScore(st.totalScore)}分` : "待打卡")
-        : "陪伴中";
-      const hobbyLine = m.role === "student"
-        ? (m.subjectFocus?.length ? m.subjectFocus : m.hobbies)
-        : m.hobbies;
-      return `<article class="member-card member-card--${m.role}">
-        <div class="member-card__avatar">${renderAvatar(m, "member-card__avatar")}</div>
-        <div class="member-card__body">
-          <strong>${m.name}${m.nickname ? ` · ${m.nickname}` : ""}</strong>
-          <span class="member-role">${formatMemberRoleLine(m)}</span>
-          <div class="tag-row">${tagsHTML(hobbyLine)}</div>
-          ${m.role === "student" ? "" : `<div class="tag-row tag-row--muted">${tagsHTML(m.personalityTags)}</div>`}
-          <p class="member-status">今日：${status}</p>
-        </div>
-        <button class="btn btn--primary btn--sm" data-enter="${m.memberId}" data-role="${m.role}">${getMemberEntryLabel(m)}</button>
-      </article>`;
-    }).join("")}</div></div>`;
+    <div class="member-list">${members.map((m) => renderMemberHomeCard(m, st, gm)).join("")}</div></div>`;
 
   $("#logout-top", root)?.addEventListener("click", async () => {
     if (await showConfirm({ title: "退出登录", message: "确定要退出当前账号吗？", confirmText: "退出", danger: true })) {
@@ -1238,6 +1260,47 @@ function bindSpecialForm(root) {
   updateSuggest();
 }
 
+/* ── Student learning hub ── */
+function renderStudent(root) {
+  const user = getCurrentUser();
+  const student = getStudentMember();
+  const st = todayStatus();
+  const gm = getGrowthMarket(user?.familyId, student?.memberId);
+  const unread = getUnreadCount();
+  const subjects = student?.subjectFocus?.length ? student.subjectFocus : ["SAT Reading", "Math", "English"];
+  const planetLevel = gm?.level || "成长星球";
+  const taskParts = [];
+  if (st.checkedIn) taskParts.push(`已打卡 ${formatScore(st.totalScore)}分`);
+  else taskParts.push("待打卡");
+  taskParts.push(st.trainingDone ? "复训完成" : st.trainingProgress);
+  if (st.mistakeCount) taskParts.push(`${st.mistakeCount} 道错题`);
+
+  root.innerHTML = shell(`${student?.name || "同学"} 的学习成长`, "Learning Growth", "", `
+    <section class="card-block student-hub">
+      <div class="wallet-workbench__head">
+        ${renderAvatar(student, "wallet-workbench__avatar")}
+        <div>
+          <h2>${student?.name || "同学"}${student?.nickname ? ` · ${student.nickname}` : ""}</h2>
+          <p class="member-role">孩子 · 成长星球 / ${planetLevel}</p>
+        </div>
+      </div>
+      <div class="tag-row">${tagsHTML(subjects)}</div>
+      <div class="stat-grid">
+        <div class="stat"><span>成长指数</span><strong>${gm?.index ?? "—"}</strong></div>
+        <div class="stat"><span>今日任务</span><strong class="student-hub__tasks">${taskParts.join(" · ")}</strong></div>
+      </div>
+    </section>
+    ${unread ? `<button type="button" class="alert-heart" data-go="/hearts">💛 你有 ${unread} 条爱心提醒</button>` : ""}
+    ${!st.checkedIn ? RemindCard(EMPTY_HINTS.checkin, "✅") : ""}
+    <div class="action-list">
+      <button class="btn btn--primary btn--block" data-go="/checkin">${st.checkedIn ? "查看今日打卡" : "去打卡"}</button>
+      <button class="btn btn--sun btn--block" data-go="/train">去复训</button>
+      <button class="btn btn--ghost btn--block" data-go="/coach-honor">荣誉室</button>
+    </div>`, MODULE_SLOGANS.checkin);
+
+  root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
+}
+
 function renderCheckin(root) {
   const existing = getTodayRecord();
   const persisted = loadPersistedCheckinDraft();
@@ -1515,28 +1578,75 @@ function renderPointLedgerHTML(transactions, emptyMsg = "暂无积分流水记�
   ).join("")}</div>`;
 }
 
-function renderParentWalletHeader(member, role, wallet) {
-  if (!wallet) return "";
+function parseCoachActionPayload(action) {
+  if (action?.payload && typeof action.payload === "object") return action.payload;
+  try {
+    return typeof action?.content === "string" ? JSON.parse(action.content) : (action?.content || {});
+  } catch {
+    return { text: action?.content };
+  }
+}
+
+function getParentTodayStats(familyId, role, wallet) {
+  const acts = getCoachingActions(familyId, formatDateKey()).filter((a) => a.parentRole === role);
+  const honorCount = (...labels) => acts.filter((a) => {
+    const p = parseCoachActionPayload(a);
+    const ht = String(p.honorType || "");
+    return labels.some((l) => ht.includes(l));
+  }).length;
+  const base = { rewarded: wallet?.todayRewarded || 0 };
+  if (role === "father") {
+    return {
+      ...base,
+      praiseLetters: honorCount("表扬信") + acts.filter((a) => a.type === "praise").length,
+      medals: honorCount("奖章"),
+      greetingCards: acts.filter((a) => a.type === "card").length + honorCount("贺卡"),
+    };
+  }
+  return {
+    ...base,
+    warmCards: acts.filter((a) => a.type === "card").length + honorCount("鼓励贺卡", "鼓励卡"),
+    honors: acts.filter((a) => a.type === "stars").length + honorCount("荣誉", "亲子活动"),
+    planSuggestions: acts.filter((a) => a.type === "method").length,
+  };
+}
+
+function renderParentWorkbenchHero(member, role, wallet, wb) {
   const sysRoles = getMemberSystemRoles(member).join(" / ");
-  return `<section class="card-block wallet-workbench wallet-workbench--${role}">
-    <div class="wallet-workbench__head">
-      ${renderAvatar(member, "wallet-workbench__avatar")}
+  const familyRole = FAMILY_ROLE_LABELS[role] || role;
+  const stats = wallet ? getParentTodayStats(getCurrentUser()?.familyId, role, wallet) : null;
+  const statGrid = role === "father"
+    ? `<div class="parent-workbench-hero__stats">
+      <div class="stat"><span>当前钱包积分</span><strong>${wallet?.balance ?? "—"}</strong></div>
+      <div class="stat"><span>今日已奖励</span><strong>${stats?.rewarded ?? 0}</strong></div>
+      <div class="stat"><span>今日已发表扬信</span><strong>${stats?.praiseLetters ?? 0}</strong></div>
+      <div class="stat"><span>今日已发奖章</span><strong>${stats?.medals ?? 0}</strong></div>
+      <div class="stat"><span>今日已发贺卡</span><strong>${stats?.greetingCards ?? 0}</strong></div>
+    </div>`
+    : `<div class="parent-workbench-hero__stats">
+      <div class="stat"><span>当前钱包积分</span><strong>${wallet?.balance ?? "—"}</strong></div>
+      <div class="stat"><span>今日已奖励</span><strong>${stats?.rewarded ?? 0}</strong></div>
+      <div class="stat"><span>今日已发鼓励卡</span><strong>${stats?.warmCards ?? 0}</strong></div>
+      <div class="stat"><span>今日已发荣誉</span><strong>${stats?.honors ?? 0}</strong></div>
+      <div class="stat"><span>今日已给计划建议</span><strong>${stats?.planSuggestions ?? 0}</strong></div>
+    </div>`;
+
+  return `<section class="parent-workbench-hero parent-workbench-hero--${role} card-block">
+    <button type="button" class="parent-workbench-hero__back btn btn--ghost btn--sm" data-go="/coach">返回家庭总览</button>
+    <div class="parent-workbench-hero__head">
+      ${renderAvatar(member, "parent-workbench-hero__avatar")}
       <div>
-        <h2>${member?.name || ""}</h2>
-        <p class="member-role">系统角色：${sysRoles}</p>
+        <h2 class="parent-workbench-hero__title">${wb?.title || member?.name || ""}</h2>
+        <p class="parent-workbench-hero__en">${wb?.subtitle || ""}</p>
+        <p class="member-role">${familyRole} · ${sysRoles}</p>
       </div>
     </div>
-    <div class="stat-grid">
-      <div class="stat"><span>当前可用优培积分</span><strong>${wallet.balance}</strong></div>
-      <div class="stat"><span>今日已奖励</span><strong>${wallet.todayRewarded || 0}</strong></div>
-      <div class="stat"><span>今日扣分提醒</span><strong>${wallet.todayDeducted || 0}</strong></div>
-      <div class="stat"><span>累计奖励</span><strong>${wallet.totalRewarded || 0}</strong></div>
-    </div>
-    <button type="button" class="btn btn--ghost btn--block" data-toggle-ledger>进入积分记录</button>
+    ${wallet ? statGrid : `<p class="hint">钱包余额仅在工作台与孩子荣誉室中可见。</p>`}
+    ${wallet ? `<button type="button" class="btn btn--ghost btn--block btn--sm" data-toggle-ledger>进入积分记录</button>
     <div id="parent-ledger" class="ledger-panel hidden">
       <h4>积分记录</h4>
       ${renderPointLedgerHTML([], "你还没有积分流水记录。")}
-    </div>
+    </div>` : ""}
   </section>`;
 }
 
@@ -1678,7 +1788,7 @@ function renderCoach(root) {
     ${renderRecentCoachActions(user?.familyId)}
     ${tail}`;
 
-  root.innerHTML = shell("优培", "Growth Coaching", "", body, MODULE_SLOGANS.coach);
+  root.innerHTML = shell("家庭优培总览", "Family Coaching Overview", "", body, MODULE_SLOGANS.coach);
   root.querySelectorAll("[data-enter-coach]").forEach((b) => b.addEventListener("click", () => {
     const targetRole = b.dataset.enterCoach;
     const cur = getCurrentRole();
@@ -1947,8 +2057,8 @@ function renderCoachParent(root, parentRole) {
   const wallet = getParentWalletForViewer(user?.familyId, role, user?.role);
   const tip = RemindCard(wb?.tagline || "今天可以先看看孩子的状态，再给出合适的陪伴。");
 
-  root.innerHTML = shell(wb?.title || member?.name || "家长工作台", wb?.subtitle || "Coach", "←", `
-    ${renderParentWalletHeader(member, role, wallet)}
+  root.innerHTML = `<div class="page page--workbench">
+    ${renderParentWorkbenchHero(member, role, wallet, wb)}
     ${renderSpecialPerformanceParentCard(todayRec, role)}
     ${renderParentSummaryCard(todayRec)}
     ${renderParentPointsPanel(role, todayRec)}
@@ -1959,9 +2069,9 @@ function renderCoachParent(root, parentRole) {
       <button class="coach-btn" data-act="stars">⭐ 评分</button>
       <button class="coach-btn" data-act="card">💌 鼓励贺卡</button>
     </div>
-    <div id="coach-form" class="coach-form hidden"></div>`);
+    <div id="coach-form" class="coach-form hidden"></div></div>`;
 
-  $("[data-back]", root).onclick = () => navigate("/coach");
+  root.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => navigate(b.dataset.go)));
   bindParentLedgerToggle(root, user?.familyId, user?.role);
   bindParentPointsForms(root, role);
 
@@ -2536,7 +2646,7 @@ function renderBoot() {
 const ROUTES = {
   boot: renderBoot, welcome: renderWelcome, login: renderLogin, join: renderJoin,
   register: renderRegister, home: renderHome, train: renderTrain, "train-play": renderTrainPlay,
-  "train-complete": renderTrainComplete, checkin: renderCheckin, coach: renderCoach,
+  "train-complete": renderTrainComplete, student: renderStudent, checkin: renderCheckin, coach: renderCoach,
   "coach-parent": renderCoachParent, "coach-honor": renderCoachHonor, hearts: renderHearts, profile: renderProfile,
   poster: (r, id) => renderPoster(r, id),
 };
@@ -2585,7 +2695,7 @@ async function clearClientCachesAndRestart() {
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
   } catch { /* ignore */ }
-  location.href = `${location.pathname}?v=15`;
+  location.href = `${location.pathname}?v=16`;
 }
 
 function render() {

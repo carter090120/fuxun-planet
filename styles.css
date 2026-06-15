@@ -717,6 +717,24 @@ body.training-focus-mode--browser .train-focus__hint {
 .wallet-workbench__head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
 .wallet-workbench__head h2 { margin: 0; font-size: 1.1rem; }
 .wallet-workbench__avatar { width: 52px; height: 52px; font-size: 1.8rem; }
+.page--workbench { padding-top: 8px; }
+.parent-workbench-hero { border-left: 4px solid var(--blue); margin-bottom: 12px; }
+.parent-workbench-hero--mother { border-left-color: #ec4899; }
+.parent-workbench-hero__back { margin: 0 0 10px; padding: 4px 10px; font-size: 0.78rem; }
+.parent-workbench-hero__head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+.parent-workbench-hero__avatar { width: 52px; height: 52px; font-size: 1.8rem; flex-shrink: 0; }
+.parent-workbench-hero__title { margin: 0; font-size: 1.05rem; line-height: 1.3; }
+.parent-workbench-hero__en { margin: 2px 0 4px; font-size: 0.72rem; color: var(--soft); font-weight: 600; }
+.parent-workbench-hero__stats {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px;
+}
+.parent-workbench-hero__stats .stat {
+  padding: 8px 10px; border-radius: 12px; background: rgba(59,130,246,0.06);
+}
+.parent-workbench-hero__stats .stat span { font-size: 0.68rem; display: block; margin-bottom: 2px; }
+.parent-workbench-hero__stats .stat strong { font-size: 0.95rem; }
+.parent-workbench-hero--mother .parent-workbench-hero__stats .stat { background: rgba(236,72,153,0.06); }
+.student-hub__tasks { font-size: 0.82rem; line-height: 1.35; }
 .ledger-panel { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .ledger-panel.hidden { display: none; }
 .ledger-list { display: flex; flex-direction: column; gap: 8px; }
