@@ -671,23 +671,33 @@ body.training-focus-mode--browser .train-focus__hint {
 }
 .special-choice-group {
   display: grid;
+  grid-template-columns: 1fr;
   gap: 10px;
   margin-top: 8px;
+  width: 100%;
+}
+@media (min-width: 640px) {
+  .special-choice-group {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 .special-choice-card {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 10px;
-  min-height: 52px;
+  min-height: 56px;
+  max-height: none;
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid var(--line);
   background: #fff;
-  white-space: normal;
-  word-break: break-word;
+  width: 100%;
+  box-sizing: border-box;
   cursor: pointer;
   touch-action: manipulation;
   transition: border-color 0.15s, background 0.15s;
+  user-select: none;
 }
 .special-choice-card.is-selected {
   border-color: var(--blue);
@@ -700,13 +710,23 @@ body.training-focus-mode--browser .train-focus__hint {
   height: 18px;
   margin: 0;
   accent-color: var(--blue);
+  pointer-events: none;
 }
 .special-choice-card__text {
   flex: 1;
+  min-width: 0;
   font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+  writing-mode: horizontal-tb;
+  text-align: left;
 }
+.special-perf .field > .special-choice-group {
+  width: 100%;
+}
+.father-reward-form .toggle { margin: 6px 0; }
 .ai-ref-card {
   margin: 10px 0;
   padding: 12px 14px;

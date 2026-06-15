@@ -8,6 +8,11 @@ import {
 import { formatSpecialPerformanceSummary } from "./specialPerformance.js";
 import { rewardStudentWithHonor, deductStudent, getParentWalletForViewer } from "./pointLedger.js";
 import { getHonorItems, addHonorItem } from "./honorItems.js";
+export {
+  FATHER_REWARD_SCENARIOS, FATHER_TOOL_LABELS, FATHER_SUBMIT_LABELS, FATHER_TOOL_DEFAULTS,
+  buildFatherRewardDraft, buildFatherFromSpecialPerformance, findFatherCategoryByLabel,
+  getFatherToolDefaults,
+} from "./fatherRewardScenarios.js";
 
 export const FATHER_REWARD_POINTS = {
   card: 500,
@@ -27,51 +32,6 @@ export const FATHER_MEDAL_TYPES = [
   "父子约定星",
   "今日高光星",
 ];
-
-export const FATHER_REWARD_SCENARIOS = {
-  learning: {
-    label: "学习成长场景",
-    items: [
-      "错题清零",
-      "为一道错题坚持很久",
-      "主动复训错题",
-      "主动整理错题本",
-      "主动背词汇",
-      "主动阅读",
-      "主动问问题",
-      "主动完成计划外学习",
-      "复盘今天的问题",
-      "训练正确率提升",
-      "连续打卡坚持",
-    ],
-  },
-  motherCare: {
-    label: "妈妈守护场景",
-    items: [
-      "主动帮妈妈做家务",
-      "妈妈提醒时没有顶嘴",
-      "主动向妈妈表达感谢",
-      "妈妈累的时候主动分担",
-      "和妈妈发生分歧后主动沟通",
-      "妈妈不在时主动完成任务",
-      "做了一件让妈妈轻松一点的事",
-      "对妈妈说了一句温暖的话",
-    ],
-  },
-  fatherPact: {
-    label: "父子成长契约场景",
-    items: [
-      "完成和爸爸约定的目标",
-      "接受爸爸给的方法",
-      "主动向爸爸汇报进度",
-      "跟爸爸说了真实困难",
-      "和爸爸一起复盘错题",
-      "完成爸爸设置的挑战任务",
-      "今天比昨天更自律",
-      "完成父子成长约定",
-    ],
-  },
-};
 
 const HONOR_TYPE_MAP = {
   card: "爸爸贺卡",
@@ -288,6 +248,7 @@ export function submitFatherReward({
   points,
   relatedRecordId,
   notifyStudent,
+  addToHonor = true,
   member,
   student,
   familyId,
@@ -317,21 +278,24 @@ export function submitFatherReward({
   });
   if (!result.ok) return result;
 
-  const honor = addHonorItem({
-    familyId,
-    studentId: student?.memberId,
-    fromRole: "father",
-    fromName: member?.name || "爸爸",
-    itemType: tool,
-    title: displayTitle,
-    content: content || reason,
-    scenario,
-    scenarioCategory,
-    medalType: tool === "medal" ? medalType : "",
-    points: pts,
-    transactionId: result.transaction?.transactionId,
-    relatedRecordId,
-  });
+  let honor = null;
+  if (addToHonor !== false) {
+    honor = addHonorItem({
+      familyId,
+      studentId: student?.memberId,
+      fromRole: "father",
+      fromName: member?.name || "爸爸",
+      itemType: tool,
+      title: displayTitle,
+      content: content || reason,
+      scenario,
+      scenarioCategory,
+      medalType: tool === "medal" ? medalType : "",
+      points: pts,
+      transactionId: result.transaction?.transactionId,
+      relatedRecordId,
+    });
+  }
 
   addCoachingAction({
     familyId,
